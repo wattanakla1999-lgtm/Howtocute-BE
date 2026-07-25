@@ -334,6 +334,9 @@ func (s *BookingService) CancelCustomerBooking(id, customerID uint, cancelReason
 	if booking.Status == model.BookingStatusCancelled {
 		return booking, nil
 	}
+	if booking.Status != model.BookingStatusPending && booking.Status != model.BookingStatusConfirmed {
+		return model.Booking{}, apperror.BadRequest("booking cannot be cancelled", apperror.ErrValidation)
+	}
 	booking.Status = model.BookingStatusCancelled
 	booking.CancelReason = strings.TrimSpace(cancelReason)
 	if booking.CancelReason == "" {
