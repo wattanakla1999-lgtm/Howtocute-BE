@@ -34,6 +34,12 @@ func main() {
 	}
 	jwtManager := service.NewJWTManager(cfg.JWTSecret, cfg.JWTTTL)
 	customerJWTManager := service.NewCustomerJWTManager(cfg.CustomerJWTSecret, cfg.CustomerJWTTTL)
+	lineNotificationService := service.NewLineNotificationService(
+		service.NewHTTPLinePushClient(nil),
+		cfg.LineMessagingChannelAccessToken,
+		cfg.LineShopOwnerUserID,
+		cfg.LineBookingDetailsURL,
+	)
 	authService := service.NewAuthService(repository.NewAuthRepository(db), jwtManager)
 	if err := authService.EnsureAdmin(cfg.AdminUsername, cfg.AdminName, cfg.AdminPassword); err != nil {
 		log.Fatal("seed configured admin: ", err)
@@ -70,7 +76,7 @@ func main() {
 	}
 	fmt.Println("Database Shop Setting migrated!")
 
-	r := router.New(db, cfg.AllowOrigin, jwtManager, customerJWTManager, cfg.LineLoginChannelID)
+	r := router.New(db, cfg.AllowOrigin, jwtManager, customerJWTManager, cfg.LineLoginChannelID, lineNotificationService)
 	r.Run(":" + cfg.Port)
 }
 

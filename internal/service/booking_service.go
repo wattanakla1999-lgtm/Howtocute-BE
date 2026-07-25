@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -59,10 +60,15 @@ type UpdateBookingInput struct {
 type BookingService struct {
 	repo             BookingStore
 	bookingNoFactory func() (string, error)
+	notifier         BookingNotifier
 }
 
-func NewBookingService(repo BookingStore) *BookingService {
-	return &BookingService{repo: repo, bookingNoFactory: generateBookingNo}
+func NewBookingService(repo BookingStore, notifiers ...BookingNotifier) *BookingService {
+	var notifier BookingNotifier
+	if len(notifiers) > 0 {
+		notifier = notifiers[0]
+	}
+	return &BookingService{repo: repo, bookingNoFactory: generateBookingNo, notifier: notifier}
 }
 
 func (s *BookingService) GetBookings(filter repository.BookingFilter, pagination utils.Pagination) ([]model.Booking, int64, error) {
@@ -220,6 +226,7 @@ func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking,
 		}
 		return model.Booking{}, err
 	}
+	s.notifyOwnerBookingCreated(booking)
 	return booking, nil
 }
 
@@ -316,6 +323,29 @@ func (s *BookingService) UpdateBooking(id uint, input UpdateBookingInput) (model
 	return booking, nil
 }
 
+func (s *BookingService) CancelCustomerBooking(id, customerID uint, cancelReason string) (model.Booking, error) {
+	booking, err := s.GetBookingByID(id)
+	if err != nil {
+		return model.Booking{}, err
+	}
+	if booking.UserID == nil || *booking.UserID != customerID {
+		return model.Booking{}, apperror.NotFound("booking not found", gorm.ErrRecordNotFound)
+	}
+	if booking.Status == model.BookingStatusCancelled {
+		return booking, nil
+	}
+	booking.Status = model.BookingStatusCancelled
+	booking.CancelReason = strings.TrimSpace(cancelReason)
+	if booking.CancelReason == "" {
+		booking.CancelReason = "ยกเลิกโดยลูกค้า"
+	}
+	if err := s.repo.Update(&booking); err != nil {
+		return model.Booking{}, err
+	}
+	s.notifyOwnerBookingCancelled(booking)
+	return booking, nil
+}
+
 func (s *BookingService) UpdateBookingStatus(id uint, status model.BookingStatus, cancelReason string) (model.Booking, error) {
 	if !model.IsValidBookingStatus(status) {
 		return model.Booking{}, apperror.BadRequest("invalid booking status", apperror.ErrValidation)
@@ -337,6 +367,9 @@ func (s *BookingService) UpdateBookingStatus(id uint, status model.BookingStatus
 		}
 		return model.Booking{}, err
 	}
+	if status == model.BookingStatusConfirmed {
+		s.notifyCustomerBookingConfirmed(booking)
+	}
 	return booking, nil
 }
 
@@ -346,6 +379,30 @@ func (s *BookingService) DeleteBooking(id uint) error {
 		return err
 	}
 	return s.repo.Delete(&booking)
+}
+
+func (s *BookingService) notifyOwnerBookingCreated(booking model.Booking) {
+	if s.notifier == nil {
+		return
+	}
+	err := s.notifier.NotifyOwnerBookingCreated(context.Background(), booking)
+	logNotificationFailure("owner_booking_created", booking, err)
+}
+
+func (s *BookingService) notifyOwnerBookingCancelled(booking model.Booking) {
+	if s.notifier == nil {
+		return
+	}
+	err := s.notifier.NotifyOwnerBookingCancelled(context.Background(), booking)
+	logNotificationFailure("owner_booking_cancelled", booking, err)
+}
+
+func (s *BookingService) notifyCustomerBookingConfirmed(booking model.Booking) {
+	if s.notifier == nil {
+		return
+	}
+	err := s.notifier.NotifyCustomerBookingConfirmed(context.Background(), booking)
+	logNotificationFailure("customer_booking_confirmed", booking, err)
 }
 
 func (s *BookingService) findUser(id uint) (model.User, error) {

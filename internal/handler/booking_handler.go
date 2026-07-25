@@ -205,6 +205,30 @@ func (h *BookingHandler) UpdateBookingStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToBookingResponse(booking))
 }
 
+func (h *BookingHandler) CancelCustomerBooking(c *gin.Context) {
+	customerID, err := customerIDFromContext(c)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	id, err := bookingIDFromParam(c)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	var request dto.CancelBookingRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		respondError(c, apperror.BadRequest("invalid request body", err))
+		return
+	}
+	booking, err := h.service.CancelCustomerBooking(id, customerID, request.CancelReason)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToBookingResponse(booking))
+}
+
 func (h *BookingHandler) DeleteBooking(c *gin.Context) {
 	id, err := bookingIDFromParam(c)
 	if err != nil {

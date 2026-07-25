@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"nailly-back-end/internal/apperror"
 	"nailly-back-end/internal/model"
@@ -21,6 +22,28 @@ type fakeBookingStore struct {
 	bookings      map[uint]model.Booking
 	nextUserID    uint
 	nextBookingID uint
+}
+
+type fakeBookingNotifier struct {
+	ownerCreated      []model.Booking
+	ownerCancelled    []model.Booking
+	customerConfirmed []model.Booking
+	err               error
+}
+
+func (f *fakeBookingNotifier) NotifyOwnerBookingCreated(_ context.Context, booking model.Booking) error {
+	f.ownerCreated = append(f.ownerCreated, booking)
+	return f.err
+}
+
+func (f *fakeBookingNotifier) NotifyOwnerBookingCancelled(_ context.Context, booking model.Booking) error {
+	f.ownerCancelled = append(f.ownerCancelled, booking)
+	return f.err
+}
+
+func (f *fakeBookingNotifier) NotifyCustomerBookingConfirmed(_ context.Context, booking model.Booking) error {
+	f.customerConfirmed = append(f.customerConfirmed, booking)
+	return f.err
 }
 
 func newFakeBookingStore() *fakeBookingStore {
@@ -233,6 +256,21 @@ func TestCreateBookingSuccess(t *testing.T) {
 	}
 }
 
+func TestCreateBookingNotifiesOwner(t *testing.T) {
+	store := newFakeBookingStore()
+	notifier := &fakeBookingNotifier{}
+	bookingService := bookingServiceForTest(store)
+	bookingService.notifier = notifier
+
+	booking, err := bookingService.CreateBooking(validCreateBookingInput())
+	if err != nil {
+		t.Fatalf("CreateBooking() error = %v", err)
+	}
+	if len(notifier.ownerCreated) != 1 || notifier.ownerCreated[0].ID != booking.ID {
+		t.Fatalf("ownerCreated = %+v, want booking %d", notifier.ownerCreated, booking.ID)
+	}
+}
+
 func TestCreateBookingForeignKeyNotFound(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -359,6 +397,54 @@ func TestUpdateBookingStatusSuccess(t *testing.T) {
 	if booking.Status != model.BookingStatusConfirmed {
 		t.Fatalf("Status = %q, want confirmed", booking.Status)
 	}
+}
+
+func TestUpdateBookingStatusConfirmedNotifiesCustomer(t *testing.T) {
+	store := newFakeBookingStore()
+	lineUserID := "U123"
+	store.users[1] = model.User{Model: gorm.Model{ID: 1}, Name: "Somying", LineUserID: &lineUserID}
+	input := validCreateBookingInput()
+	store.bookings[1] = existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusPending)
+	notifier := &fakeBookingNotifier{}
+	bookingService := bookingServiceForTest(store)
+	bookingService.notifier = notifier
+
+	booking, err := bookingService.UpdateBookingStatus(1, model.BookingStatusConfirmed, "")
+	if err != nil {
+		t.Fatalf("UpdateBookingStatus() error = %v", err)
+	}
+	if len(notifier.customerConfirmed) != 1 || notifier.customerConfirmed[0].ID != booking.ID {
+		t.Fatalf("customerConfirmed = %+v, want booking %d", notifier.customerConfirmed, booking.ID)
+	}
+}
+
+func TestCancelCustomerBookingNotifiesOwner(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	store.bookings[1] = existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusPending)
+	notifier := &fakeBookingNotifier{}
+	bookingService := bookingServiceForTest(store)
+	bookingService.notifier = notifier
+
+	booking, err := bookingService.CancelCustomerBooking(1, 1, "ติดธุระ")
+	if err != nil {
+		t.Fatalf("CancelCustomerBooking() error = %v", err)
+	}
+	if booking.Status != model.BookingStatusCancelled || booking.CancelReason != "ติดธุระ" {
+		t.Fatalf("booking = %+v, want cancelled with reason", booking)
+	}
+	if len(notifier.ownerCancelled) != 1 || notifier.ownerCancelled[0].ID != booking.ID {
+		t.Fatalf("ownerCancelled = %+v, want booking %d", notifier.ownerCancelled, booking.ID)
+	}
+}
+
+func TestCancelCustomerBookingRejectsOtherCustomer(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	store.bookings[1] = existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusPending)
+
+	_, err := bookingServiceForTest(store).CancelCustomerBooking(1, 2, "")
+	assertAppError(t, err, http.StatusNotFound, "booking not found")
 }
 
 func TestGetBookingsPaginationAndFilters(t *testing.T) {

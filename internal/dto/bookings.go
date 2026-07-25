@@ -56,6 +56,10 @@ type UpdateBookingStatusRequest struct {
 	CancelReason string              `json:"cancelReason"`
 }
 
+type CancelBookingRequest struct {
+	CancelReason string `json:"cancelReason"`
+}
+
 type BookingUserResponse struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
