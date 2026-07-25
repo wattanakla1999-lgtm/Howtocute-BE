@@ -3,6 +3,7 @@ package handler
 import (
 	"nailly-back-end/internal/apperror"
 	"nailly-back-end/internal/dto"
+	"nailly-back-end/internal/middleware"
 	"nailly-back-end/internal/model"
 	"nailly-back-end/internal/repository"
 	"nailly-back-end/internal/service"
@@ -60,6 +61,25 @@ func (h *BookingHandler) GetCustomerBookings(c *gin.Context) {
 	})
 }
 
+func (h *BookingHandler) GetMyBookings(c *gin.Context) {
+	customerID, err := customerIDFromContext(c)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+
+	pagination := utils.NewPagination(c.DefaultQuery("page", "1"), c.DefaultQuery("limit", "100"))
+	bookings, total, err := h.service.GetBookings(repository.BookingFilter{UserID: &customerID}, pagination)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.PaginatedResponse{
+		Data: dto.ToBookingResponses(bookings), Page: pagination.Page,
+		Limit: pagination.Limit, Total: total,
+	})
+}
+
 func (h *BookingHandler) GetBookingByID(c *gin.Context) {
 	id, err := bookingIDFromParam(c)
 	if err != nil {
@@ -107,6 +127,31 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 	}
 	booking, err := h.service.CreateBooking(service.CreateBookingInput{
 		UserID: request.UserID, ServiceID: request.ServiceID, TechnicianID: request.TechnicianID,
+		StartAt: request.StartAt, EndAt: request.EndAt, CustomerName: request.CustomerName,
+		CustomerPhone: request.CustomerPhone, PaymentMethod: request.PaymentMethod, Note: request.Note,
+	})
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, dto.ToBookingResponse(booking))
+}
+
+func (h *BookingHandler) CreateCustomerBooking(c *gin.Context) {
+	customerID, err := customerIDFromContext(c)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+
+	var request dto.CreateBookingRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		respondError(c, apperror.BadRequest("invalid request body", err))
+		return
+	}
+
+	booking, err := h.service.CreateBooking(service.CreateBookingInput{
+		UserID: &customerID, ServiceID: request.ServiceID, TechnicianID: request.TechnicianID,
 		StartAt: request.StartAt, EndAt: request.EndAt, CustomerName: request.CustomerName,
 		CustomerPhone: request.CustomerPhone, PaymentMethod: request.PaymentMethod, Note: request.Note,
 	})
@@ -177,6 +222,18 @@ func bookingIDFromParam(c *gin.Context) (uint, error) {
 	value, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil || value == 0 {
 		return 0, apperror.BadRequest("invalid booking id", apperror.ErrValidation)
+	}
+	return uint(value), nil
+}
+
+func customerIDFromContext(c *gin.Context) (uint, error) {
+	claims, ok := middleware.CustomerClaimsFromContext(c)
+	if !ok {
+		return 0, apperror.Unauthorized("invalid customer token", apperror.ErrValidation)
+	}
+	value, err := strconv.ParseUint(claims.Subject, 10, 64)
+	if err != nil || value == 0 {
+		return 0, apperror.Unauthorized("invalid customer token", err)
 	}
 	return uint(value), nil
 }
