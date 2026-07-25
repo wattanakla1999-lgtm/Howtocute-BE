@@ -17,6 +17,12 @@ func main() {
 	setThailandTimezone()
 
 	cfg := config.Load()
+	if cfg.LineLoginChannelID == "" {
+		log.Fatal("LINE_LOGIN_CHANNEL_ID is required for LINE LIFF customer login")
+	}
+	if cfg.CustomerJWTSecret == "" {
+		log.Fatal("CUSTOMER_JWT_SECRET is required for customer JWT")
+	}
 	db := database.Connect(cfg.DSN)
 
 	if err := db.AutoMigrate(&model.User{}); err != nil {
@@ -27,6 +33,7 @@ func main() {
 		log.Fatal("migrate admins: ", err)
 	}
 	jwtManager := service.NewJWTManager(cfg.JWTSecret, cfg.JWTTTL)
+	customerJWTManager := service.NewCustomerJWTManager(cfg.CustomerJWTSecret, cfg.CustomerJWTTTL)
 	authService := service.NewAuthService(repository.NewAuthRepository(db), jwtManager)
 	if err := authService.EnsureAdmin(cfg.AdminUsername, cfg.AdminName, cfg.AdminPassword); err != nil {
 		log.Fatal("seed configured admin: ", err)
@@ -63,7 +70,7 @@ func main() {
 	}
 	fmt.Println("Database Shop Setting migrated!")
 
-	r := router.New(db, cfg.AllowOrigin, jwtManager)
+	r := router.New(db, cfg.AllowOrigin, jwtManager, customerJWTManager, cfg.LineLoginChannelID)
 	r.Run(":" + cfg.Port)
 }
 

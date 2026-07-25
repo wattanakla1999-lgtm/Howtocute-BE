@@ -5,7 +5,6 @@ import (
 	"nailly-back-end/internal/model"
 	"nailly-back-end/internal/repository"
 	"nailly-back-end/pkg/utils"
-	"fmt"
 )
 
 type ServicesService struct {
@@ -25,11 +24,6 @@ func (s *ServicesService) GetServiceByID(id string) (model.Service, error) {
 }
 
 func (s *ServicesService) CreateService(input model.Service) (model.Service, error) {
-
-
-	fmt.Println("input: >>>>>>>",input)
-
-
 	if input.ServiceName == "" {
 		return model.Service{}, apperror.BadRequest("service name is required", apperror.ErrValidation)
 	}

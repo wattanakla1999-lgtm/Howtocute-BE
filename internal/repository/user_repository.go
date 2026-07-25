@@ -49,6 +49,12 @@ func (r *UserRepository) FindByEmail(email string) (model.User, error) {
 	return user, err
 }
 
+func (r *UserRepository) FindByLineUserID(lineUserID string) (model.User, error) {
+	var user model.User
+	err := r.db.Where("line_user_id = ?", lineUserID).First(&user).Error
+	return user, err
+}
+
 func (r *UserRepository) FindOlderThan(age int) ([]model.User, error) {
 	var users []model.User
 	err := r.db.Where("age > ?", age).Find(&users).Error
@@ -61,6 +67,10 @@ func (r *UserRepository) Create(user *model.User) error {
 
 func (r *UserRepository) Update(user *model.User, input model.User) error {
 	return r.db.Model(user).Updates(input).Error
+}
+
+func (r *UserRepository) Save(user *model.User) error {
+	return r.db.Save(user).Error
 }
 
 func (r *UserRepository) Delete(user *model.User) error {

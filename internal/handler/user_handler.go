@@ -3,8 +3,9 @@ package handler
 import (
 	"nailly-back-end/internal/apperror"
 	"nailly-back-end/internal/dto"
+	"nailly-back-end/internal/middleware"
+	"nailly-back-end/internal/model"
 	"nailly-back-end/internal/repository"
-	"nailly-back-end/internal/service"
 	"nailly-back-end/pkg/utils"
 	"net/http"
 	"strconv"
@@ -13,10 +14,20 @@ import (
 )
 
 type UserHandler struct {
-	service *service.UserService
+	service UserService
 }
 
-func NewUserHandler(service *service.UserService) *UserHandler {
+type UserService interface {
+	GetUsers(filter repository.UserFilter, pagination utils.Pagination) ([]model.User, int64, error)
+	GetUserByID(id string) (model.User, error)
+	GetUserByEmail(email string) (model.User, error)
+	GetUsersOlderThan(age int) ([]model.User, error)
+	CreateUser(input model.User) (model.User, error)
+	UpdateUser(id string, input model.User) (model.User, error)
+	DeleteUser(id string) error
+}
+
+func NewUserHandler(service UserService) *UserHandler {
 	return &UserHandler{service: service}
 }
 
@@ -116,4 +127,20 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
+}
+
+func (h *UserHandler) GetCustomerMe(c *gin.Context) {
+	claims, ok := middleware.CustomerClaimsFromContext(c)
+	if !ok {
+		respondError(c, apperror.Unauthorized("กรุณาเข้าสู่ระบบ", apperror.ErrValidation))
+		return
+	}
+
+	user, err := h.service.GetUserByID(claims.Subject)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToCustomerMeResponse(user))
 }

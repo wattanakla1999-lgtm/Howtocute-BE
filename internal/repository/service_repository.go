@@ -8,8 +8,8 @@ import (
 )
 
 type ServiceFilter struct {
-	ServiceName  string
-	}
+	ServiceName string
+}
 
 type ServiceRepository struct {
 	db *gorm.DB

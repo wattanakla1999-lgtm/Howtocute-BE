@@ -18,11 +18,20 @@ services:
   api:
     build: .
     environment:
-      PORT: 8080
+      PORT: ${PORT:-8080}
       GIN_MODE: release
-      DATABASE_DSN: host=db user=nailly password=nailly1234 dbname=nailly_db port=5432 sslmode=disable
+      DATABASE_DSN: ${DATABASE_DSN:-host=db user=nailly password=nailly1234 dbname=nailly_db port=5432 sslmode=disable}
+      ALLOW_ORIGIN: ${ALLOW_ORIGIN:-*}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me-before-production}
+      JWT_TTL_HOURS: ${JWT_TTL_HOURS:-24}
+      LINE_LOGIN_CHANNEL_ID: ${LINE_LOGIN_CHANNEL_ID:?LINE_LOGIN_CHANNEL_ID is required}
+      CUSTOMER_JWT_SECRET: ${CUSTOMER_JWT_SECRET:?CUSTOMER_JWT_SECRET is required}
+      CUSTOMER_JWT_TTL_HOURS: ${CUSTOMER_JWT_TTL_HOURS:-720}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-nailly2025}
+      ADMIN_NAME: ${ADMIN_NAME:-ผู้ดูแลระบบ}
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:${PORT:-8080}"
     depends_on:
       db:
         condition: service_healthy

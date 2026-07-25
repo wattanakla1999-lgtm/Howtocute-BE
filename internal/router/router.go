@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func New(db *gorm.DB, allowOrigin string, jwtManager *service.JWTManager) *gin.Engine {
+func New(db *gorm.DB, allowOrigin string, jwtManager *service.JWTManager, customerJWTManager *service.CustomerJWTManager, lineLoginChannelID string) *gin.Engine {
 	r := gin.Default()
 	r.Use(corsMiddleware(allowOrigin))
 
@@ -19,16 +19,20 @@ func New(db *gorm.DB, allowOrigin string, jwtManager *service.JWTManager) *gin.E
 
 	api := r.Group("/api")
 	requireAdmin := middleware.RequireAdmin(jwtManager)
+	requireCustomer := middleware.RequireCustomer(customerJWTManager)
 
 	// Keep-alive
 	api.GET("/keep-alive", keepAliveHandler(db))
 	api.HEAD("/keep-alive", keepAliveHandler(db))
 
 	// Authentication
-	RegisterAuthRoutes(api, db, jwtManager, requireAdmin)
+	RegisterAuthRoutes(api, db, jwtManager, customerJWTManager, lineLoginChannelID, requireAdmin)
 
 	// Users
 	RegisterUserRoutes(api, db, requireAdmin)
+
+	// Customers
+	RegisterCustomerRoutes(api, db, requireCustomer)
 
 	// Services
 	RegisterServiceRoutes(api, db, requireAdmin)

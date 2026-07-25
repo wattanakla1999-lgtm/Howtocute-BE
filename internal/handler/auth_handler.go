@@ -11,11 +11,12 @@ import (
 )
 
 type AuthHandler struct {
-	service *service.AuthService
+	service     *service.AuthService
+	lineService *service.LineAuthService
 }
 
-func NewAuthHandler(authService *service.AuthService) *AuthHandler {
-	return &AuthHandler{service: authService}
+func NewAuthHandler(authService *service.AuthService, lineService *service.LineAuthService) *AuthHandler {
+	return &AuthHandler{service: authService, lineService: lineService}
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -41,4 +42,18 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.AdminResponse{
 		ID: claims.AdminID, Username: claims.Username, Name: claims.Name, Role: claims.Role,
 	})
+}
+
+func (h *AuthHandler) LineLogin(c *gin.Context) {
+	var request dto.LineLoginRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		respondError(c, apperror.BadRequest("idToken is required", err))
+		return
+	}
+	result, err := h.lineService.Login(c.Request.Context(), request.IDToken)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToLineLoginResponse(result))
 }
