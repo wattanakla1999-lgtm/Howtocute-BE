@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"nailly-back-end/internal/apperror"
 	"nailly-back-end/internal/model"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"testing"
 	"time"
@@ -73,6 +75,67 @@ type fakeLineVerifier struct {
 
 func (f fakeLineVerifier) Verify(_ context.Context, _, _ string) (LineTokenClaims, error) {
 	return f.claims, f.err
+}
+
+func TestHTTPLineTokenVerifierUsesChannelIDAsClientID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		if got := r.Header.Get("Content-Type"); got != "application/x-www-form-urlencoded" {
+			t.Fatalf("Content-Type = %q, want application/x-www-form-urlencoded", got)
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm() error = %v", err)
+		}
+		if got := r.Form.Get("id_token"); got != "id-token" {
+			t.Fatalf("id_token = %q, want id-token", got)
+		}
+		if got := r.Form.Get("client_id"); got != "2010841578" {
+			t.Fatalf("client_id = %q, want LINE Login Channel ID", got)
+		}
+		if got := r.Form.Get("client_secret"); got != "" {
+			t.Fatalf("client_secret = %q, want empty", got)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"sub":     "U123",
+			"aud":     "2010841578",
+			"name":    "Mina",
+			"picture": "https://example.com/pic.jpg",
+		})
+	}))
+	defer server.Close()
+
+	verifier := NewHTTPLineTokenVerifier(server.Client())
+	verifier.verifyURL = server.URL
+
+	claims, err := verifier.Verify(context.Background(), "id-token", "2010841578")
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if claims.Subject != "U123" || claims.Audience != "2010841578" || claims.Name != "Mina" {
+		t.Fatalf("claims = %+v", claims)
+	}
+}
+
+func TestHTTPLineTokenVerifierRejectsLineError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error":             "invalid_request",
+			"error_description": "invalid client_id",
+		})
+	}))
+	defer server.Close()
+
+	verifier := NewHTTPLineTokenVerifier(server.Client())
+	verifier.verifyURL = server.URL
+
+	_, err := verifier.Verify(context.Background(), "id-token", "bad-channel")
+	var appErr *apperror.AppError
+	if !errors.As(err, &appErr) || appErr.Status != http.StatusUnauthorized {
+		t.Fatalf("Verify() error = %v, want 401 AppError", err)
+	}
 }
 
 func TestLineAuthServiceRejectsEmptyIDToken(t *testing.T) {

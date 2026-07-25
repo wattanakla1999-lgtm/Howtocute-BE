@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"nailly-back-end/internal/apperror"
 	"nailly-back-end/internal/model"
 	"net/http"
@@ -63,6 +64,7 @@ func (v *HTTPLineTokenVerifier) Verify(ctx context.Context, idToken, channelID s
 
 	response, err := v.client.Do(request)
 	if err != nil {
+		log.Printf("LINE token verify request failed channel_id=%s error=%v", maskChannelID(channelID), err)
 		return LineTokenClaims{}, err
 	}
 	defer response.Body.Close()
@@ -72,6 +74,12 @@ func (v *HTTPLineTokenVerifier) Verify(ctx context.Context, idToken, channelID s
 		return LineTokenClaims{}, err
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		log.Printf(
+			"LINE token verify failed status=%d channel_id=%s response=%s",
+			response.StatusCode,
+			maskChannelID(channelID),
+			safeLogBody(body),
+		)
 		return LineTokenClaims{}, apperror.Unauthorized("invalid LINE token", apperror.ErrValidation)
 	}
 
@@ -138,10 +146,16 @@ func (s *LineAuthService) Login(ctx context.Context, idToken string) (LineAuthRe
 		return LineAuthResult{}, apperror.Unauthorized("invalid LINE token", err)
 	}
 	if strings.TrimSpace(claims.Audience) != s.channelID {
+		log.Printf(
+			"LINE token audience mismatch expected_channel_id=%s token_audience=%s",
+			maskChannelID(s.channelID),
+			maskChannelID(claims.Audience),
+		)
 		return LineAuthResult{}, apperror.Unauthorized("invalid LINE token", apperror.ErrValidation)
 	}
 	lineUserID := strings.TrimSpace(claims.Subject)
 	if lineUserID == "" {
+		log.Printf("LINE token subject missing channel_id=%s", maskChannelID(s.channelID))
 		return LineAuthResult{}, apperror.Unauthorized("invalid LINE token", apperror.ErrValidation)
 	}
 
@@ -188,4 +202,23 @@ func (s *LineAuthService) findOrCreateCustomer(lineUserID, name, pictureURL stri
 		return model.User{}, err
 	}
 	return customer, nil
+}
+
+func maskChannelID(channelID string) string {
+	channelID = strings.TrimSpace(channelID)
+	if len(channelID) <= 4 {
+		return "****"
+	}
+	return channelID[:4] + strings.Repeat("*", len(channelID)-4)
+}
+
+func safeLogBody(body []byte) string {
+	const maxLogBody = 512
+	text := strings.TrimSpace(string(body))
+	text = strings.ReplaceAll(text, "\n", " ")
+	text = strings.ReplaceAll(text, "\r", " ")
+	if len(text) > maxLogBody {
+		return text[:maxLogBody] + "...[truncated]"
+	}
+	return text
 }
