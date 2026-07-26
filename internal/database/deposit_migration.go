@@ -27,6 +27,7 @@ func EnsureDepositPaymentSchema(db *gorm.DB) error {
 	if db.Migrator().HasTable("bookings") {
 		if err := db.Exec(`
 			ALTER TABLE bookings
+			ADD COLUMN IF NOT EXISTS technician_id BIGINT,
 			ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC(10,2) DEFAULT 0.00,
 			ADD COLUMN IF NOT EXISTS deposit_status VARCHAR(20) DEFAULT 'none',
 			ADD COLUMN IF NOT EXISTS slip_url TEXT,

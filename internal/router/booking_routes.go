@@ -28,6 +28,7 @@ func RegisterBookingRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin gin.H
 	bookings.PATCH("/customer/:id/cancel", requireCustomer, bookingHandler.CancelCustomerBooking)
 	bookings.PUT("/:id", requireAdmin, bookingHandler.UpdateBooking)
 	bookings.DELETE("/:id", requireAdmin, bookingHandler.DeleteBooking)
+	bookings.PATCH("/:id/assign-technician", requireAdmin, bookingHandler.AssignTechnician)
 	bookings.PATCH("/:id/status", requireAdmin, bookingHandler.UpdateBookingStatus)
 	bookings.PATCH("/:id/verify-slip", requireAdmin, bookingHandler.VerifyBookingSlip)
 }

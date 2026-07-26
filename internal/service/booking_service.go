@@ -338,6 +338,37 @@ func (s *BookingService) VerifyBookingSlip(id uint, approved bool, rejectReason 
 	return booking, nil
 }
 
+func (s *BookingService) AssignTechnician(id uint, technicianID *uint) (model.Booking, error) {
+	booking, err := s.GetBookingByID(id)
+	if err != nil {
+		return model.Booking{}, err
+	}
+	booking.TechnicianID = technicianID
+	booking.Technician = nil
+	if technicianID != nil {
+		if *technicianID == 0 {
+			return model.Booking{}, apperror.BadRequest("technicianId must be greater than 0 or null", apperror.ErrValidation)
+		}
+		technician, findErr := s.findTechnician(*technicianID)
+		if findErr != nil {
+			return model.Booking{}, findErr
+		}
+		booking.Technician = &technician
+	}
+	if booking.Status != model.BookingStatusCancelled && booking.Status != model.BookingStatusNoShow {
+		if err := s.ensureNoOverlap(booking.TechnicianID, booking.StartAt, booking.EndAt, booking.ID); err != nil {
+			return model.Booking{}, err
+		}
+	}
+	if err := s.repo.Update(&booking); err != nil {
+		if errors.Is(err, repository.ErrTechnicianOverlap) {
+			return model.Booking{}, bookingTimeOverlapError(err)
+		}
+		return model.Booking{}, err
+	}
+	return booking, nil
+}
+
 func walkInEmail(phone string) string {
 	hash := sha256.Sum256([]byte(phone))
 	return fmt.Sprintf("walkin-%x@nailly.local", hash[:8])

@@ -72,6 +72,10 @@ type VerifyBookingSlipRequest struct {
 	RejectReason string `json:"rejectReason"`
 }
 
+type AssignTechnicianRequest struct {
+	TechnicianID NullableUint `json:"technicianId"`
+}
+
 type BookingUserResponse struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`

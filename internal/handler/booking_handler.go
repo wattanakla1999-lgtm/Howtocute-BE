@@ -258,6 +258,29 @@ func (h *BookingHandler) VerifyBookingSlip(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToBookingResponse(booking))
 }
 
+func (h *BookingHandler) AssignTechnician(c *gin.Context) {
+	id, err := bookingIDFromParam(c)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	var request dto.AssignTechnicianRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		respondError(c, apperror.BadRequest("invalid request body", err))
+		return
+	}
+	if !request.TechnicianID.Set {
+		respondError(c, apperror.BadRequest("technicianId is required", apperror.ErrValidation))
+		return
+	}
+	booking, err := h.service.AssignTechnician(id, request.TechnicianID.Value)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToBookingResponse(booking))
+}
+
 func (h *BookingHandler) UpdateBookingStatus(c *gin.Context) {
 	id, err := bookingIDFromParam(c)
 	if err != nil {

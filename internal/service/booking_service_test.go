@@ -552,6 +552,53 @@ func TestVerifyBookingSlipRequiresSlipAndRejectReason(t *testing.T) {
 	assertAppError(t, err, http.StatusBadRequest, "rejectReason is required when rejecting a slip")
 }
 
+func TestAssignTechnicianSuccess(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	booking := existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusPending)
+	booking.TechnicianID = nil
+	store.bookings[1] = booking
+	technicianID := uint(2)
+
+	updated, err := bookingServiceForTest(store).AssignTechnician(1, &technicianID)
+	if err != nil {
+		t.Fatalf("AssignTechnician() error = %v", err)
+	}
+	if updated.TechnicianID == nil || *updated.TechnicianID != technicianID {
+		t.Fatalf("TechnicianID = %v, want %d", updated.TechnicianID, technicianID)
+	}
+	if updated.Technician == nil || updated.Technician.ID != technicianID {
+		t.Fatalf("Technician = %+v, want technician %d", updated.Technician, technicianID)
+	}
+}
+
+func TestAssignTechnicianCanUnassign(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	store.bookings[1] = existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusPending)
+
+	updated, err := bookingServiceForTest(store).AssignTechnician(1, nil)
+	if err != nil {
+		t.Fatalf("AssignTechnician() error = %v", err)
+	}
+	if updated.TechnicianID != nil || updated.Technician != nil {
+		t.Fatalf("technician = (%v, %+v), want nil", updated.TechnicianID, updated.Technician)
+	}
+}
+
+func TestAssignTechnicianRejectsOverlap(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	booking := existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusPending)
+	booking.TechnicianID = nil
+	store.bookings[1] = booking
+	store.bookings[2] = existingBooking(2, 2, input.StartAt.Add(30*time.Minute), model.BookingStatusConfirmed)
+	technicianID := uint(2)
+
+	_, err := bookingServiceForTest(store).AssignTechnician(1, &technicianID)
+	assertAppError(t, err, http.StatusConflict, "ช่วงเวลานี้ทับซ้อนกับการจองอื่น")
+}
+
 func TestCancelCustomerBookingNotifiesOwner(t *testing.T) {
 	store := newFakeBookingStore()
 	input := validCreateBookingInput()
