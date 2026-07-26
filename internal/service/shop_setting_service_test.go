@@ -29,13 +29,19 @@ func (f *fakeShopSettingStore) Save(setting *model.ShopSetting) error {
 
 func TestUpdateShopSettings(t *testing.T) {
 	store := newFakeShopSettingStore()
+	depositAmount := 300.0
 	setting, err := NewShopSettingService(store).UpdateSettings(UpdateShopSettingInput{
 		ShopStatus: "closed", OpenTime: "09:30", CloseTime: "19:00", ShopPhone: "081-234-5678",
+		PromptPayNumber: "0999999999", AccountName: "Nailly Test", BankName: "Test Bank", DepositAmount: &depositAmount,
 	})
 	if err != nil {
 		t.Fatalf("UpdateSettings() error = %v", err)
 	}
 	if setting.ShopStatus != "closed" || setting.OpenTime != "09:30" || setting.CloseTime != "19:00" || setting.ShopPhone != "081-234-5678" {
+		t.Fatalf("setting = %+v", setting)
+	}
+	if setting.PromptPayNumber != "0999999999" || setting.AccountName != "Nailly Test" ||
+		setting.BankName != "Test Bank" || setting.DepositAmount != depositAmount {
 		t.Fatalf("setting = %+v", setting)
 	}
 	if store.saves != 1 {
@@ -68,6 +74,17 @@ func TestUpdateShopSettingsValidation(t *testing.T) {
 			name:    "missing phone",
 			input:   UpdateShopSettingInput{ShopStatus: "open", OpenTime: "10:00", CloseTime: "20:00"},
 			message: "shopPhone is required",
+		},
+		{
+			name: "negative deposit amount",
+			input: func() UpdateShopSettingInput {
+				amount := -1.0
+				return UpdateShopSettingInput{
+					ShopStatus: "open", OpenTime: "10:00", CloseTime: "20:00",
+					ShopPhone: "02-123-4567", DepositAmount: &amount,
+				}
+			}(),
+			message: "depositAmount must be greater than or equal to 0",
 		},
 	}
 

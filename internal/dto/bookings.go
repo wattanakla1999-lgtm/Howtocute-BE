@@ -37,6 +37,9 @@ type CreateBookingRequest struct {
 	CustomerPhone string              `json:"customerPhone" binding:"required"`
 	PaymentMethod model.PaymentMethod `json:"paymentMethod"`
 	Note          string              `json:"note"`
+	DepositAmount *float64            `json:"depositAmount"`
+	DepositStatus model.DepositStatus `json:"depositStatus"`
+	SlipURL       string              `json:"slipUrl"`
 }
 
 type UpdateBookingRequest struct {
@@ -60,6 +63,15 @@ type CancelBookingRequest struct {
 	CancelReason string `json:"cancelReason"`
 }
 
+type UploadBookingSlipRequest struct {
+	SlipURL string `json:"slipUrl" binding:"required"`
+}
+
+type VerifyBookingSlipRequest struct {
+	Approved     bool   `json:"approved"`
+	RejectReason string `json:"rejectReason"`
+}
+
 type BookingUserResponse struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
@@ -73,53 +85,65 @@ type BookingServiceResponse struct {
 }
 
 type BookingTechnicianResponse struct {
-	ID         uint   `json:"id"`
-	Name       string `json:"name"`
-	ProfileImg string `json:"profileImg,omitempty"`
+	ID             uint   `json:"id"`
+	Name           string `json:"name"`
+	TechnicianName string `json:"technicianName"`
+	ProfileImg     string `json:"profileImg,omitempty"`
 }
 
 type BookingResponse struct {
-	ID              uint                       `json:"id"`
-	BookingNo       string                     `json:"bookingNo"`
-	UserID          *uint                      `json:"userId"`
-	ServiceID       uint                       `json:"serviceId"`
-	TechnicianID    *uint                      `json:"technicianId"`
-	StartAt         time.Time                  `json:"startAt"`
-	EndAt           time.Time                  `json:"endAt"`
-	CustomerName    string                     `json:"customerName"`
-	CustomerPhone   string                     `json:"customerPhone"`
-	ServiceName     string                     `json:"serviceName"`
-	Price           int                        `json:"price"`
-	DurationMinutes int                        `json:"durationMinutes"`
-	Status          model.BookingStatus        `json:"status"`
-	PaymentMethod   model.PaymentMethod        `json:"paymentMethod"`
-	Note            string                     `json:"note,omitempty"`
-	CancelReason    string                     `json:"cancelReason,omitempty"`
-	User            *BookingUserResponse       `json:"user"`
-	Service         BookingServiceResponse     `json:"service"`
-	Technician      *BookingTechnicianResponse `json:"technician"`
-	CreatedAt       time.Time                  `json:"createdAt"`
-	UpdatedAt       time.Time                  `json:"updatedAt"`
+	ID                  uint                       `json:"id"`
+	BookingNo           string                     `json:"bookingNo"`
+	UserID              *uint                      `json:"userId"`
+	ServiceID           uint                       `json:"serviceId"`
+	TechnicianID        *uint                      `json:"technicianId"`
+	StartAt             time.Time                  `json:"startAt"`
+	EndAt               time.Time                  `json:"endAt"`
+	CustomerName        string                     `json:"customerName"`
+	CustomerPhone       string                     `json:"customerPhone"`
+	ServiceName         string                     `json:"serviceName"`
+	Price               int                        `json:"price"`
+	DurationMinutes     int                        `json:"durationMinutes"`
+	Status              model.BookingStatus        `json:"status"`
+	PaymentMethod       model.PaymentMethod        `json:"paymentMethod"`
+	Note                string                     `json:"note,omitempty"`
+	CancelReason        string                     `json:"cancelReason,omitempty"`
+	DepositAmount       float64                    `json:"depositAmount"`
+	DepositStatus       model.DepositStatus        `json:"depositStatus"`
+	SlipURL             string                     `json:"slipUrl,omitempty"`
+	SlipUploadedAt      *time.Time                 `json:"slipUploadedAt,omitempty"`
+	DepositRejectReason string                     `json:"depositRejectReason,omitempty"`
+	TechnicianName      string                     `json:"technicianName,omitempty"`
+	User                *BookingUserResponse       `json:"user"`
+	Service             BookingServiceResponse     `json:"service"`
+	Technician          *BookingTechnicianResponse `json:"technician"`
+	CreatedAt           time.Time                  `json:"createdAt"`
+	UpdatedAt           time.Time                  `json:"updatedAt"`
 }
 
 func ToBookingResponse(booking model.Booking) BookingResponse {
 	response := BookingResponse{
-		ID:              booking.ID,
-		BookingNo:       booking.BookingNo,
-		UserID:          booking.UserID,
-		ServiceID:       booking.ServiceID,
-		TechnicianID:    booking.TechnicianID,
-		StartAt:         booking.StartAt.In(thailandLocation),
-		EndAt:           booking.EndAt.In(thailandLocation),
-		CustomerName:    booking.CustomerName,
-		CustomerPhone:   booking.CustomerPhone,
-		ServiceName:     booking.ServiceName,
-		Price:           booking.Price,
-		DurationMinutes: booking.DurationMinutes,
-		Status:          booking.Status,
-		PaymentMethod:   booking.PaymentMethod,
-		Note:            booking.Note,
-		CancelReason:    booking.CancelReason,
+		ID:                  booking.ID,
+		BookingNo:           booking.BookingNo,
+		UserID:              booking.UserID,
+		ServiceID:           booking.ServiceID,
+		TechnicianID:        booking.TechnicianID,
+		StartAt:             booking.StartAt.In(thailandLocation),
+		EndAt:               booking.EndAt.In(thailandLocation),
+		CustomerName:        booking.CustomerName,
+		CustomerPhone:       booking.CustomerPhone,
+		ServiceName:         booking.ServiceName,
+		Price:               booking.Price,
+		DurationMinutes:     booking.DurationMinutes,
+		Status:              booking.Status,
+		PaymentMethod:       booking.PaymentMethod,
+		Note:                booking.Note,
+		CancelReason:        booking.CancelReason,
+		DepositAmount:       booking.DepositAmount,
+		DepositStatus:       booking.DepositStatus,
+		SlipURL:             booking.SlipURL,
+		SlipUploadedAt:      booking.SlipUploadedAt,
+		DepositRejectReason: booking.DepositRejectReason,
 		Service: BookingServiceResponse{
 			ID:       booking.Service.ID,
 			Name:     booking.Service.ServiceName,
@@ -134,10 +158,12 @@ func ToBookingResponse(booking model.Booking) BookingResponse {
 	}
 
 	if booking.Technician != nil {
+		response.TechnicianName = booking.Technician.TechnicianName
 		response.Technician = &BookingTechnicianResponse{
-			ID:         booking.Technician.ID,
-			Name:       booking.Technician.TechnicianName,
-			ProfileImg: booking.Technician.ProfileImg,
+			ID:             booking.Technician.ID,
+			Name:           booking.Technician.TechnicianName,
+			TechnicianName: booking.Technician.TechnicianName,
+			ProfileImg:     booking.Technician.ProfileImg,
 		}
 	}
 

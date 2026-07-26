@@ -22,14 +22,28 @@ Protected endpoints require `Authorization: Bearer <token>`. `GET /api/auth/me` 
 
 ## Shop Settings
 
-Both endpoints require an admin token:
+`GET /api/settings` is public so the customer booking flow can read PromptPay/deposit details.
+`PUT /api/settings` requires an admin token.
 
 ```text
 GET /api/settings
 PUT /api/settings
 ```
 
-The update body contains `shopStatus` (`open` or `closed`), `openTime`, `closeTime`, and `shopPhone`. Times use the `HH:MM` 24-hour format.
+The update body contains `shopStatus` (`open` or `closed`), `openTime`, `closeTime`, `shopPhone`, `promptPayNumber`, `accountName`, `bankName`, and `depositAmount`. Times use the `HH:MM` 24-hour format.
+
+## Slip Uploads
+
+Set these environment variables to upload base64 slip images to Supabase Storage:
+
+```bash
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_STORAGE_BUCKET=FileUpload
+```
+
+`POST /api/bookings/:id/upload-slip` accepts `{ "slipUrl": "data:image/png;base64,..." }`, uploads the image to the configured bucket, and stores the resulting public URL on the booking.
+The `FileUpload` bucket should be public, or configured with a read policy that lets the admin frontend display stored slip images.
 
 ## Dashboard
 

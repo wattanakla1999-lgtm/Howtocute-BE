@@ -119,6 +119,38 @@ func (h *BookingHandler) GetBusySlots(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"busySlots": busySlots})
 }
 
+func (h *BookingHandler) GetBookingSchedule(c *gin.Context) {
+	rawDate := strings.TrimSpace(c.Query("date"))
+	var date time.Time
+	var err error
+	if rawDate == "" {
+		now := time.Now()
+		date = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	} else {
+		date, err = time.ParseInLocation("2006-01-02", rawDate, time.Local)
+		if err != nil {
+			respondError(c, apperror.BadRequest("date must use YYYY-MM-DD format", err))
+			return
+		}
+	}
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	endOfDay := startOfDay.Add(24*time.Hour - time.Nanosecond)
+	filter := repository.BookingFilter{DateFrom: &startOfDay, DateTo: &endOfDay}
+	if status := model.BookingStatus(c.Query("status")); status != "" {
+		filter.Status = status
+	}
+	bookings, total, err := h.service.GetBookings(filter, utils.Pagination{Page: 1, Limit: 1000, Offset: 0})
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"date":     startOfDay.Format("2006-01-02"),
+		"bookings": dto.ToBookingResponses(bookings),
+		"total":    total,
+	})
+}
+
 func (h *BookingHandler) CreateBooking(c *gin.Context) {
 	var request dto.CreateBookingRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -129,6 +161,7 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 		UserID: request.UserID, ServiceID: request.ServiceID, TechnicianID: request.TechnicianID,
 		StartAt: request.StartAt, EndAt: request.EndAt, CustomerName: request.CustomerName,
 		CustomerPhone: request.CustomerPhone, PaymentMethod: request.PaymentMethod, Note: request.Note,
+		DepositAmount: request.DepositAmount, DepositStatus: request.DepositStatus, SlipURL: request.SlipURL,
 	})
 	if err != nil {
 		respondError(c, err)
@@ -154,6 +187,7 @@ func (h *BookingHandler) CreateCustomerBooking(c *gin.Context) {
 		UserID: &customerID, ServiceID: request.ServiceID, TechnicianID: request.TechnicianID,
 		StartAt: request.StartAt, EndAt: request.EndAt, CustomerName: request.CustomerName,
 		CustomerPhone: request.CustomerPhone, PaymentMethod: request.PaymentMethod, Note: request.Note,
+		DepositAmount: request.DepositAmount, DepositStatus: request.DepositStatus, SlipURL: request.SlipURL,
 	})
 	if err != nil {
 		respondError(c, err)
@@ -179,6 +213,44 @@ func (h *BookingHandler) UpdateBooking(c *gin.Context) {
 		StartAt: request.StartAt, EndAt: request.EndAt, CustomerName: request.CustomerName,
 		CustomerPhone: request.CustomerPhone, PaymentMethod: request.PaymentMethod, Note: request.Note,
 	})
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToBookingResponse(booking))
+}
+
+func (h *BookingHandler) UploadBookingSlip(c *gin.Context) {
+	id, err := bookingIDFromParam(c)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	var request dto.UploadBookingSlipRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		respondError(c, apperror.BadRequest("invalid request body", err))
+		return
+	}
+	booking, err := h.service.UploadBookingSlip(id, request.SlipURL)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToBookingResponse(booking))
+}
+
+func (h *BookingHandler) VerifyBookingSlip(c *gin.Context) {
+	id, err := bookingIDFromParam(c)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	var request dto.VerifyBookingSlipRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		respondError(c, apperror.BadRequest("invalid request body", err))
+		return
+	}
+	booking, err := h.service.VerifyBookingSlip(id, request.Approved, request.RejectReason)
 	if err != nil {
 		respondError(c, err)
 		return

@@ -33,10 +33,14 @@ func (h *ShopSettingHandler) UpdateSettings(c *gin.Context) {
 		return
 	}
 	setting, err := h.service.UpdateSettings(service.UpdateShopSettingInput{
-		ShopStatus: request.ShopStatus,
-		OpenTime:   request.OpenTime,
-		CloseTime:  request.CloseTime,
-		ShopPhone:  request.ShopPhone,
+		ShopStatus:      request.ShopStatus,
+		OpenTime:        request.OpenTime,
+		CloseTime:       request.CloseTime,
+		ShopPhone:       request.ShopPhone,
+		PromptPayNumber: request.PromptPayNumber,
+		AccountName:     request.AccountName,
+		BankName:        request.BankName,
+		DepositAmount:   request.DepositAmount,
 	})
 	if err != nil {
 		respondError(c, err)

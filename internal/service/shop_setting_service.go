@@ -13,10 +13,14 @@ type ShopSettingStore interface {
 }
 
 type UpdateShopSettingInput struct {
-	ShopStatus string
-	OpenTime   string
-	CloseTime  string
-	ShopPhone  string
+	ShopStatus      string
+	OpenTime        string
+	CloseTime       string
+	ShopPhone       string
+	PromptPayNumber string
+	AccountName     string
+	BankName        string
+	DepositAmount   *float64
 }
 
 type ShopSettingService struct {
@@ -36,6 +40,9 @@ func (s *ShopSettingService) UpdateSettings(input UpdateShopSettingInput) (model
 	input.OpenTime = strings.TrimSpace(input.OpenTime)
 	input.CloseTime = strings.TrimSpace(input.CloseTime)
 	input.ShopPhone = strings.TrimSpace(input.ShopPhone)
+	input.PromptPayNumber = strings.TrimSpace(input.PromptPayNumber)
+	input.AccountName = strings.TrimSpace(input.AccountName)
+	input.BankName = strings.TrimSpace(input.BankName)
 
 	if input.ShopStatus != "open" && input.ShopStatus != "closed" {
 		return model.ShopSetting{}, apperror.BadRequest("shopStatus must be open or closed", apperror.ErrValidation)
@@ -54,6 +61,9 @@ func (s *ShopSettingService) UpdateSettings(input UpdateShopSettingInput) (model
 	if input.ShopPhone == "" {
 		return model.ShopSetting{}, apperror.BadRequest("shopPhone is required", apperror.ErrValidation)
 	}
+	if input.DepositAmount != nil && *input.DepositAmount < 0 {
+		return model.ShopSetting{}, apperror.BadRequest("depositAmount must be greater than or equal to 0", apperror.ErrValidation)
+	}
 
 	setting, err := s.repo.Get()
 	if err != nil {
@@ -63,6 +73,18 @@ func (s *ShopSettingService) UpdateSettings(input UpdateShopSettingInput) (model
 	setting.OpenTime = input.OpenTime
 	setting.CloseTime = input.CloseTime
 	setting.ShopPhone = input.ShopPhone
+	if input.PromptPayNumber != "" {
+		setting.PromptPayNumber = input.PromptPayNumber
+	}
+	if input.AccountName != "" {
+		setting.AccountName = input.AccountName
+	}
+	if input.BankName != "" {
+		setting.BankName = input.BankName
+	}
+	if input.DepositAmount != nil {
+		setting.DepositAmount = *input.DepositAmount
+	}
 	if err := s.repo.Save(&setting); err != nil {
 		return model.ShopSetting{}, err
 	}

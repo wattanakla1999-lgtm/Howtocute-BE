@@ -31,6 +31,19 @@ type fakeBookingNotifier struct {
 	err               error
 }
 
+type fakeSlipUploader struct {
+	bookingIDs []uint
+	dataURLs   []string
+	url        string
+	err        error
+}
+
+func (f *fakeSlipUploader) UploadSlip(_ context.Context, bookingID uint, dataURL string) (string, error) {
+	f.bookingIDs = append(f.bookingIDs, bookingID)
+	f.dataURLs = append(f.dataURLs, dataURL)
+	return f.url, f.err
+}
+
 func (f *fakeBookingNotifier) NotifyOwnerBookingCreated(_ context.Context, booking model.Booking) error {
 	f.ownerCreated = append(f.ownerCreated, booking)
 	return f.err
@@ -256,6 +269,25 @@ func TestCreateBookingSuccess(t *testing.T) {
 	}
 }
 
+func TestCreateBookingWithDepositSlip(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	amount := 200.0
+	input.DepositAmount = &amount
+	input.SlipURL = " https://cdn.example/slip.jpg "
+
+	booking, err := bookingServiceForTest(store).CreateBooking(input)
+	if err != nil {
+		t.Fatalf("CreateBooking() error = %v", err)
+	}
+	if booking.DepositAmount != amount || booking.DepositStatus != model.DepositStatusPending {
+		t.Fatalf("deposit = (%v, %q), want (200, pending)", booking.DepositAmount, booking.DepositStatus)
+	}
+	if booking.SlipURL != "https://cdn.example/slip.jpg" || booking.SlipUploadedAt == nil {
+		t.Fatalf("slip = (%q, %v), want trimmed URL and uploaded time", booking.SlipURL, booking.SlipUploadedAt)
+	}
+}
+
 func TestCreateBookingNotifiesOwner(t *testing.T) {
 	store := newFakeBookingStore()
 	notifier := &fakeBookingNotifier{}
@@ -416,6 +448,108 @@ func TestUpdateBookingStatusConfirmedNotifiesCustomer(t *testing.T) {
 	if len(notifier.customerConfirmed) != 1 || notifier.customerConfirmed[0].ID != booking.ID {
 		t.Fatalf("customerConfirmed = %+v, want booking %d", notifier.customerConfirmed, booking.ID)
 	}
+}
+
+func TestUploadBookingSlipMarksDepositPending(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	store.bookings[1] = model.Booking{
+		Model: gorm.Model{ID: 1}, BookingNo: "BK-EXISTING", UserID: input.UserID, ServiceID: 2,
+		TechnicianID: input.TechnicianID, StartAt: input.StartAt, EndAt: input.StartAt.Add(time.Hour),
+		CustomerName: "Customer", CustomerPhone: "0800000000", ServiceName: "Gel nails",
+		Price: 300, DurationMinutes: 60, Status: model.BookingStatusPending,
+		DepositStatus: model.DepositStatusRejected, DepositRejectReason: "ยอดไม่ตรง",
+	}
+
+	booking, err := bookingServiceForTest(store).UploadBookingSlip(1, " https://cdn.example/new-slip.jpg ")
+	if err != nil {
+		t.Fatalf("UploadBookingSlip() error = %v", err)
+	}
+	if booking.DepositStatus != model.DepositStatusPending || booking.DepositRejectReason != "" {
+		t.Fatalf("deposit = (%q, %q), want pending without reject reason", booking.DepositStatus, booking.DepositRejectReason)
+	}
+	if booking.SlipURL != "https://cdn.example/new-slip.jpg" || booking.SlipUploadedAt == nil {
+		t.Fatalf("slip = (%q, %v), want trimmed URL and uploaded time", booking.SlipURL, booking.SlipUploadedAt)
+	}
+}
+
+func TestUploadBookingSlipStoresUploadedSupabaseURL(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	store.bookings[1] = existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusPending)
+	uploader := &fakeSlipUploader{url: "https://example.supabase.co/storage/v1/object/public/FileUpload/booking-slips/1/slip.jpg"}
+	bookingService := bookingServiceForTest(store)
+	bookingService.SetSlipUploader(uploader)
+
+	dataURL := "data:image/png;base64,aGVsbG8="
+	booking, err := bookingService.UploadBookingSlip(1, dataURL)
+	if err != nil {
+		t.Fatalf("UploadBookingSlip() error = %v", err)
+	}
+	if booking.SlipURL != uploader.url {
+		t.Fatalf("SlipURL = %q, want uploaded URL %q", booking.SlipURL, uploader.url)
+	}
+	if len(uploader.bookingIDs) != 1 || uploader.bookingIDs[0] != 1 || uploader.dataURLs[0] != dataURL {
+		t.Fatalf("uploader calls = (%v, %v), want booking 1 and original data URL", uploader.bookingIDs, uploader.dataURLs)
+	}
+}
+
+func TestVerifyBookingSlipApprovesAndConfirms(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	booking := existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusPending)
+	booking.SlipURL = "https://cdn.example/slip.jpg"
+	booking.DepositStatus = model.DepositStatusPending
+	store.bookings[1] = booking
+	notifier := &fakeBookingNotifier{}
+	bookingService := bookingServiceForTest(store)
+	bookingService.notifier = notifier
+
+	updated, err := bookingService.VerifyBookingSlip(1, true, "")
+	if err != nil {
+		t.Fatalf("VerifyBookingSlip() error = %v", err)
+	}
+	if updated.DepositStatus != model.DepositStatusVerified || updated.Status != model.BookingStatusConfirmed {
+		t.Fatalf("booking status = (%q, %q), want verified and confirmed", updated.DepositStatus, updated.Status)
+	}
+	if len(notifier.customerConfirmed) != 1 || notifier.customerConfirmed[0].ID != updated.ID {
+		t.Fatalf("customerConfirmed = %+v, want booking %d", notifier.customerConfirmed, updated.ID)
+	}
+}
+
+func TestVerifyBookingSlipRejectsWithReason(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	booking := existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusPending)
+	booking.SlipURL = "https://cdn.example/slip.jpg"
+	store.bookings[1] = booking
+
+	updated, err := bookingServiceForTest(store).VerifyBookingSlip(1, false, "ยอดโอนไม่ตรง")
+	if err != nil {
+		t.Fatalf("VerifyBookingSlip() error = %v", err)
+	}
+	if updated.DepositStatus != model.DepositStatusRejected || updated.DepositRejectReason != "ยอดโอนไม่ตรง" {
+		t.Fatalf("deposit = (%q, %q), want rejected with reason", updated.DepositStatus, updated.DepositRejectReason)
+	}
+	if updated.Status != model.BookingStatusPending {
+		t.Fatalf("Status = %q, want pending", updated.Status)
+	}
+}
+
+func TestVerifyBookingSlipRequiresSlipAndRejectReason(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	store.bookings[1] = existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusPending)
+	bookingService := bookingServiceForTest(store)
+
+	_, err := bookingService.VerifyBookingSlip(1, true, "")
+	assertAppError(t, err, http.StatusBadRequest, "booking has no uploaded slip")
+
+	booking := store.bookings[1]
+	booking.SlipURL = "https://cdn.example/slip.jpg"
+	store.bookings[1] = booking
+	_, err = bookingService.VerifyBookingSlip(1, false, "")
+	assertAppError(t, err, http.StatusBadRequest, "rejectReason is required when rejecting a slip")
 }
 
 func TestCancelCustomerBookingNotifiesOwner(t *testing.T) {

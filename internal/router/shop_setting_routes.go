@@ -15,7 +15,7 @@ func RegisterShopSettingRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin g
 	settingHandler := handler.NewShopSettingHandler(settingService)
 
 	settings := api.Group("/settings")
-	settings.Use(requireAdmin)
 	settings.GET("", settingHandler.GetSettings)
+	settings.Use(requireAdmin)
 	settings.PUT("", settingHandler.UpdateSettings)
 }

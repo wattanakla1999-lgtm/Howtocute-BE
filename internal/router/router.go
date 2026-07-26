@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func New(db *gorm.DB, allowOrigin string, jwtManager *service.JWTManager, customerJWTManager *service.CustomerJWTManager, lineLoginChannelID string, bookingNotifier service.BookingNotifier) *gin.Engine {
+func New(db *gorm.DB, allowOrigin string, jwtManager *service.JWTManager, customerJWTManager *service.CustomerJWTManager, lineLoginChannelID string, bookingNotifier service.BookingNotifier, slipUploader service.SlipUploader) *gin.Engine {
 	r := gin.Default()
 	r.Use(corsMiddleware(allowOrigin))
 
@@ -41,7 +41,7 @@ func New(db *gorm.DB, allowOrigin string, jwtManager *service.JWTManager, custom
 	RegisterNailTechnicianRoutes(api, db, requireAdmin)
 
 	// Bookings
-	RegisterBookingRoutes(api, db, requireAdmin, requireCustomer, bookingNotifier)
+	RegisterBookingRoutes(api, db, requireAdmin, requireCustomer, bookingNotifier, slipUploader)
 
 	// Reports
 	RegisterReportRoutes(api, db, requireAdmin)

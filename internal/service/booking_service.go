@@ -41,6 +41,9 @@ type CreateBookingInput struct {
 	CustomerPhone string
 	PaymentMethod model.PaymentMethod
 	Note          string
+	DepositAmount *float64
+	DepositStatus model.DepositStatus
+	SlipURL       string
 }
 
 type UpdateBookingInput struct {
@@ -61,6 +64,7 @@ type BookingService struct {
 	repo             BookingStore
 	bookingNoFactory func() (string, error)
 	notifier         BookingNotifier
+	slipUploader     SlipUploader
 }
 
 func NewBookingService(repo BookingStore, notifiers ...BookingNotifier) *BookingService {
@@ -69,6 +73,10 @@ func NewBookingService(repo BookingStore, notifiers ...BookingNotifier) *Booking
 		notifier = notifiers[0]
 	}
 	return &BookingService{repo: repo, bookingNoFactory: generateBookingNo, notifier: notifier}
+}
+
+func (s *BookingService) SetSlipUploader(uploader SlipUploader) {
+	s.slipUploader = uploader
 }
 
 func (s *BookingService) GetBookings(filter repository.BookingFilter, pagination utils.Pagination) ([]model.Booking, int64, error) {
@@ -201,6 +209,29 @@ func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking,
 	if !model.IsValidPaymentMethod(paymentMethod) {
 		return model.Booking{}, apperror.BadRequest("invalid payment method", apperror.ErrValidation)
 	}
+	depositAmount := 0.0
+	if input.DepositAmount != nil {
+		if *input.DepositAmount < 0 {
+			return model.Booking{}, apperror.BadRequest("depositAmount must be greater than or equal to 0", apperror.ErrValidation)
+		}
+		depositAmount = *input.DepositAmount
+	}
+	slipURL := strings.TrimSpace(input.SlipURL)
+	depositStatus := input.DepositStatus
+	if depositStatus == "" {
+		depositStatus = model.DepositStatusNone
+	}
+	if slipURL != "" && depositStatus == model.DepositStatusNone {
+		depositStatus = model.DepositStatusPending
+	}
+	if !model.IsValidDepositStatus(depositStatus) {
+		return model.Booking{}, apperror.BadRequest("invalid deposit status", apperror.ErrValidation)
+	}
+	var slipUploadedAt *time.Time
+	if slipURL != "" {
+		now := time.Now()
+		slipUploadedAt = &now
+	}
 	booking := model.Booking{
 		BookingNo:       bookingNo,
 		UserID:          input.UserID,
@@ -216,6 +247,10 @@ func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking,
 		Status:          model.BookingStatusPending,
 		PaymentMethod:   paymentMethod,
 		Note:            input.Note,
+		DepositAmount:   depositAmount,
+		DepositStatus:   depositStatus,
+		SlipURL:         slipURL,
+		SlipUploadedAt:  slipUploadedAt,
 		User:            user,
 		Service:         serviceModel,
 		Technician:      technician,
@@ -227,6 +262,79 @@ func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking,
 		return model.Booking{}, err
 	}
 	s.notifyOwnerBookingCreated(booking)
+	return booking, nil
+}
+
+func (s *BookingService) UploadBookingSlip(id uint, slipURL string) (model.Booking, error) {
+	booking, err := s.GetBookingByID(id)
+	if err != nil {
+		return model.Booking{}, err
+	}
+	slipURL = strings.TrimSpace(slipURL)
+	if slipURL == "" {
+		return model.Booking{}, apperror.BadRequest("slipUrl is required", apperror.ErrValidation)
+	}
+	storedSlipURL, err := s.storeSlipURL(booking.ID, slipURL)
+	if err != nil {
+		return model.Booking{}, err
+	}
+	now := time.Now()
+	booking.SlipURL = storedSlipURL
+	booking.SlipUploadedAt = &now
+	booking.DepositStatus = model.DepositStatusPending
+	booking.DepositRejectReason = ""
+	if err := s.repo.Update(&booking); err != nil {
+		if errors.Is(err, repository.ErrTechnicianOverlap) {
+			return model.Booking{}, bookingTimeOverlapError(err)
+		}
+		return model.Booking{}, err
+	}
+	return booking, nil
+}
+
+func (s *BookingService) storeSlipURL(bookingID uint, slipURL string) (string, error) {
+	if !strings.HasPrefix(strings.TrimSpace(slipURL), "data:") {
+		return slipURL, nil
+	}
+	if s.slipUploader == nil {
+		return slipURL, nil
+	}
+	uploadedURL, err := s.slipUploader.UploadSlip(context.Background(), bookingID, slipURL)
+	if err != nil {
+		return "", apperror.Internal("could not upload slip image", err)
+	}
+	return uploadedURL, nil
+}
+
+func (s *BookingService) VerifyBookingSlip(id uint, approved bool, rejectReason string) (model.Booking, error) {
+	booking, err := s.GetBookingByID(id)
+	if err != nil {
+		return model.Booking{}, err
+	}
+	if strings.TrimSpace(booking.SlipURL) == "" {
+		return model.Booking{}, apperror.BadRequest("booking has no uploaded slip", apperror.ErrValidation)
+	}
+	if approved {
+		booking.DepositStatus = model.DepositStatusVerified
+		booking.DepositRejectReason = ""
+		booking.Status = model.BookingStatusConfirmed
+	} else {
+		rejectReason = strings.TrimSpace(rejectReason)
+		if rejectReason == "" {
+			return model.Booking{}, apperror.BadRequest("rejectReason is required when rejecting a slip", apperror.ErrValidation)
+		}
+		booking.DepositStatus = model.DepositStatusRejected
+		booking.DepositRejectReason = rejectReason
+	}
+	if err := s.repo.Update(&booking); err != nil {
+		if errors.Is(err, repository.ErrTechnicianOverlap) {
+			return model.Booking{}, bookingTimeOverlapError(err)
+		}
+		return model.Booking{}, err
+	}
+	if approved {
+		s.notifyCustomerBookingConfirmed(booking)
+	}
 	return booking, nil
 }
 

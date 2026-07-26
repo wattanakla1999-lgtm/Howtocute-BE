@@ -40,6 +40,14 @@ func main() {
 		cfg.LineShopOwnerUserID,
 		cfg.LineBookingDetailsURL,
 	)
+	var slipUploader service.SlipUploader
+	if storageClient := service.NewSupabaseStorageClient(
+		cfg.SupabaseURL,
+		cfg.SupabaseServiceRoleKey,
+		cfg.SupabaseStorageBucket,
+	); storageClient != nil {
+		slipUploader = storageClient
+	}
 	authService := service.NewAuthService(repository.NewAuthRepository(db), jwtManager)
 	if err := authService.EnsureAdmin(cfg.AdminUsername, cfg.AdminName, cfg.AdminPassword); err != nil {
 		log.Fatal("seed configured admin: ", err)
@@ -67,6 +75,9 @@ func main() {
 			log.Fatal("make booking user optional: ", err)
 		}
 	}
+	if err := database.EnsureDepositPaymentSchema(db); err != nil {
+		log.Fatal("prepare deposit payment schema: ", err)
+	}
 	if err := db.AutoMigrate(&model.Booking{}); err != nil {
 		log.Fatal("migrate bookings: ", err)
 	}
@@ -76,7 +87,7 @@ func main() {
 	}
 	fmt.Println("Database Shop Setting migrated!")
 
-	r := router.New(db, cfg.AllowOrigin, jwtManager, customerJWTManager, cfg.LineLoginChannelID, lineNotificationService)
+	r := router.New(db, cfg.AllowOrigin, jwtManager, customerJWTManager, cfg.LineLoginChannelID, lineNotificationService, slipUploader)
 	r.Run(":" + cfg.Port)
 }
 

@@ -22,6 +22,9 @@ type Config struct {
 	AdminUsername                   string
 	AdminPassword                   string
 	AdminName                       string
+	SupabaseURL                     string
+	SupabaseServiceRoleKey          string
+	SupabaseStorageBucket           string
 }
 
 func Load() Config {
@@ -42,6 +45,9 @@ func Load() Config {
 		AdminUsername:                   getEnv("ADMIN_USERNAME", "admin"),
 		AdminPassword:                   getEnv("ADMIN_PASSWORD", "nailly2025"),
 		AdminName:                       getEnv("ADMIN_NAME", "ผู้ดูแลระบบ"),
+		SupabaseURL:                     normalizeOrigin(getEnv("SUPABASE_URL", "")),
+		SupabaseServiceRoleKey:          getEnv("SUPABASE_SERVICE_ROLE_KEY", getEnv("SUPABASE_SERVICE_KEY", "")),
+		SupabaseStorageBucket:           getEnv("SUPABASE_STORAGE_BUCKET", "FileUpload"),
 	}
 }
 
