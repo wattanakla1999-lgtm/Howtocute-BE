@@ -572,6 +572,24 @@ func TestAssignTechnicianSuccess(t *testing.T) {
 	}
 }
 
+func TestAssignTechnicianCanReassignExistingBooking(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	store.bookings[1] = existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusConfirmed)
+	newTechnicianID := uint(2)
+
+	updated, err := bookingServiceForTest(store).AssignTechnician(1, &newTechnicianID)
+	if err != nil {
+		t.Fatalf("AssignTechnician() error = %v", err)
+	}
+	if updated.TechnicianID == nil || *updated.TechnicianID != newTechnicianID {
+		t.Fatalf("TechnicianID = %v, want reassigned technician %d", updated.TechnicianID, newTechnicianID)
+	}
+	if updated.Technician == nil || updated.Technician.ID != newTechnicianID {
+		t.Fatalf("Technician = %+v, want technician %d", updated.Technician, newTechnicianID)
+	}
+}
+
 func TestAssignTechnicianCanUnassign(t *testing.T) {
 	store := newFakeBookingStore()
 	input := validCreateBookingInput()
