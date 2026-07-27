@@ -69,6 +69,12 @@ func main() {
 		fmt.Println("Database Admin migrated!")
 	}
 
+	if err := db.AutoMigrate(&model.Category{}); err != nil {
+		log.Println("migrate categories warning: ", err)
+	} else {
+		fmt.Println("Database Category migrated!")
+	}
+
 	if err := db.AutoMigrate(&model.Service{}); err != nil {
 		log.Println("migrate services warning: ", err)
 	} else {

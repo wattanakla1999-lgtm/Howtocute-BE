@@ -9,6 +9,8 @@ type Service struct {
 	ServiceName  string `gorm:"type:varchar(255);not null" json:"name"`
 	ServicePrice int    `gorm:"not null" json:"price"`
 	Duration     int    `gorm:"not null" json:"duration"`
+	Category     string `gorm:"type:varchar(100)" json:"category"`
+	CategoryID   *uint  `gorm:"column:category_id" json:"categoryId,omitempty"`
 	ImageURL     string `gorm:"type:text" json:"imageUrl,omitempty"`
 	Img          string `gorm:"column:img;type:text" json:"img,omitempty"`
 	ServiceImg   string `gorm:"type:text" json:"-"`

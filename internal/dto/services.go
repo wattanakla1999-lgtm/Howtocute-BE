@@ -10,6 +10,8 @@ type CreateServiceRequest struct {
 	ServiceName  string    `gorm:"type:varchar(255);not null" json:"serviceName"`
 	ServicePrice int       `gorm:"not null" json:"servicePrice"`
 	Duration     int       `gorm:"not null" json:"duration"`
+	Category     string    `json:"category,omitempty"`
+	CategoryID   *uint     `json:"categoryId,omitempty"`
 	ImageURL     string    `gorm:"type:text" json:"imageUrl,omitempty"`
 	ServiceImg   string    `gorm:"type:varchar(500)" json:"img,omitempty"`
 	Popular      bool      `gorm:"default:false" json:"popular"`
@@ -22,6 +24,8 @@ type UpdateServiceRequest struct {
 	ServiceName  string `gorm:"type:varchar(255);not null" json:"serviceName"`
 	ServicePrice int    `gorm:"not null" json:"servicePrice"`
 	Duration     int    `gorm:"not null" json:"duration"`
+	Category     string `json:"category,omitempty"`
+	CategoryID   *uint  `json:"categoryId,omitempty"`
 	ImageURL     string `gorm:"type:text" json:"imageUrl,omitempty"`
 	ServiceImg   string `gorm:"type:varchar(500)" json:"img,omitempty"`
 	Popular      bool   `gorm:"default:false" json:"popular"`
@@ -35,6 +39,8 @@ type ServiceResponse struct {
 	ServiceName  string    `json:"serviceName"`
 	ServicePrice int       `json:"servicePrice"`
 	Duration     int       `json:"duration"`
+	Category     string    `json:"category,omitempty"`
+	CategoryID   *uint     `json:"categoryId,omitempty"`
 	ImageURL     string    `json:"imageUrl,omitempty"`
 	ServiceImg   string    `json:"img,omitempty"`
 	Popular      bool      `json:"popular"`
@@ -51,6 +57,8 @@ func ToServiceResponse(service model.Service) ServiceResponse {
 		ServiceName:  service.ServiceName,
 		ServicePrice: service.ServicePrice,
 		Duration:     service.Duration,
+		Category:     service.Category,
+		CategoryID:   service.CategoryID,
 		ImageURL:     firstNonEmpty(service.ImageURL, service.Img, service.ServiceImg),
 		ServiceImg:   firstNonEmpty(service.Img, service.ImageURL, service.ServiceImg),
 		Popular:      service.Popular,
@@ -75,6 +83,8 @@ func (r CreateServiceRequest) ToModel() model.Service {
 		ServiceName:  r.ServiceName,
 		ServicePrice: r.ServicePrice,
 		Duration:     r.Duration,
+		Category:     r.Category,
+		CategoryID:   r.CategoryID,
 		ImageURL:     firstNonEmpty(r.ImageURL, r.ServiceImg),
 		Img:          firstNonEmpty(r.ServiceImg, r.ImageURL),
 		ServiceImg:   firstNonEmpty(r.ServiceImg, r.ImageURL),
@@ -88,6 +98,8 @@ func (r UpdateServiceRequest) ToModel() model.Service {
 		ServiceName:  r.ServiceName,
 		ServicePrice: r.ServicePrice,
 		Duration:     r.Duration,
+		Category:     r.Category,
+		CategoryID:   r.CategoryID,
 		ImageURL:     firstNonEmpty(r.ImageURL, r.ServiceImg),
 		Img:          firstNonEmpty(r.ServiceImg, r.ImageURL),
 		ServiceImg:   firstNonEmpty(r.ServiceImg, r.ImageURL),

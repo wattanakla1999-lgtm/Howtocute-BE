@@ -37,6 +37,9 @@ func New(db *gorm.DB, allowOrigin string, jwtManager *service.JWTManager, custom
 	// Services
 	RegisterServiceRoutes(api, db, requireAdmin, imageUploader)
 
+	// Categories
+	RegisterCategoryRoutes(api, db, requireAdmin)
+
 	// Nail Technicians
 	RegisterNailTechnicianRoutes(api, db, requireAdmin, imageUploader)
 
