@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -11,6 +12,14 @@ import (
 
 func ConnectWithError(dsn string) (*gorm.DB, error) {
 	thailandLocation := time.FixedZone("Asia/Bangkok", 7*60*60)
+
+	if dsn != "" && !strings.Contains(dsn, "connect_timeout") {
+		if strings.Contains(dsn, "?") {
+			dsn += "&connect_timeout=5"
+		} else {
+			dsn += "?connect_timeout=5"
+		}
+	}
 
 	db, err := gorm.Open(postgres.New(postgres.Config{
 		DSN:                  dsn,
