@@ -9,6 +9,8 @@ import (
 
 type ServiceFilter struct {
 	ServiceName string
+	Category    string
+	CategoryID  *uint
 }
 
 type ServiceRepository struct {
@@ -26,6 +28,13 @@ func (r *ServiceRepository) FindAll(filter ServiceFilter, pagination utils.Pagin
 	query = utils.ApplyLikeFilters(query, map[string]string{
 		"service_name": filter.ServiceName,
 	})
+
+	if filter.Category != "" {
+		query = query.Where("category = ?", filter.Category)
+	}
+	if filter.CategoryID != nil {
+		query = query.Where("category_id = ?", *filter.CategoryID)
+	}
 
 	total, err := utils.Paginate(query, pagination, &services)
 	if err != nil {
@@ -50,6 +59,8 @@ func (r *ServiceRepository) Update(service *model.Service, input model.Service) 
 		"service_name":  input.ServiceName,
 		"service_price": input.ServicePrice,
 		"duration":      input.Duration,
+		"category":      input.Category,
+		"category_id":   input.CategoryID,
 		"image_url":     input.ImageURL,
 		"img":           input.Img,
 		"service_img":   input.ServiceImg,
@@ -61,6 +72,8 @@ func (r *ServiceRepository) Update(service *model.Service, input model.Service) 
 	service.ServiceName = input.ServiceName
 	service.ServicePrice = input.ServicePrice
 	service.Duration = input.Duration
+	service.Category = input.Category
+	service.CategoryID = input.CategoryID
 	service.ImageURL = input.ImageURL
 	service.Img = input.Img
 	service.ServiceImg = input.ServiceImg

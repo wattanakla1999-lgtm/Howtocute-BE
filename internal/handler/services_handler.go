@@ -1,13 +1,16 @@
 package handler
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
+	"strconv"
+
 	"nailly-back-end/internal/apperror"
 	"nailly-back-end/internal/dto"
 	"nailly-back-end/internal/repository"
 	"nailly-back-end/internal/service"
 	"nailly-back-end/pkg/utils"
-	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ServicesHandler struct {
@@ -19,10 +22,27 @@ func NewServicesHandler(service *service.ServicesService) *ServicesHandler {
 }
 
 func (h *ServicesHandler) GetServices(c *gin.Context) {
+	var categoryIDPtr *uint
+	if catIDStr := c.Query("category_id"); catIDStr != "" {
+		if val, err := strconv.ParseUint(catIDStr, 10, 32); err == nil {
+			uVal := uint(val)
+			categoryIDPtr = &uVal
+		}
+	}
+
 	filter := repository.ServiceFilter{
 		ServiceName: c.Query("service_name"),
+		Category:    c.Query("category"),
+		CategoryID:  categoryIDPtr,
 	}
-	pagination := utils.NewPagination(c.DefaultQuery("page", "1"), c.DefaultQuery("limit", "10"))
+
+	// If page/limit parameters are omitted, set limit to a large number to return all services at once
+	limit := c.Query("limit")
+	if limit == "" {
+		limit = "1000"
+	}
+
+	pagination := utils.NewPagination(c.DefaultQuery("page", "1"), limit)
 
 	services, total, err := h.service.GetServices(filter, pagination)
 	if err != nil {
@@ -48,16 +68,15 @@ func (h *ServicesHandler) GetServiceByID(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToServiceResponse(service))
 }
 
-// Removed GetUsersOlderThan method as it is not related to services
-
 func (h *ServicesHandler) CreateService(c *gin.Context) {
-	var input dto.CreateServiceRequest
-	if err := c.ShouldBindJSON(&input); err != nil {
+	var request dto.CreateServiceRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
 		respondError(c, apperror.BadRequest("invalid request body", err))
 		return
 	}
 
-	service, err := h.service.CreateService(input.ToModel())
+	serviceModel := request.ToModel()
+	service, err := h.service.CreateService(serviceModel)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -67,13 +86,13 @@ func (h *ServicesHandler) CreateService(c *gin.Context) {
 }
 
 func (h *ServicesHandler) UpdateService(c *gin.Context) {
-	var input dto.UpdateServiceRequest
-	if err := c.ShouldBindJSON(&input); err != nil {
+	var request dto.UpdateServiceRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
 		respondError(c, apperror.BadRequest("invalid request body", err))
 		return
 	}
 
-	service, err := h.service.UpdateService(c.Param("id"), input.ToModel())
+	service, err := h.service.UpdateService(c.Param("id"), request.ToModel())
 	if err != nil {
 		respondError(c, err)
 		return
@@ -83,10 +102,11 @@ func (h *ServicesHandler) UpdateService(c *gin.Context) {
 }
 
 func (h *ServicesHandler) DeleteService(c *gin.Context) {
-	if err := h.service.DeleteService(c.Param("id")); err != nil {
+	err := h.service.DeleteService(c.Param("id"))
+	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "service deleted"})
+	c.JSON(http.StatusOK, gin.H{"message": "Service deleted successfully"})
 }
