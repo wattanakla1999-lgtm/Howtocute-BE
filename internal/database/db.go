@@ -1,12 +1,16 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -29,8 +33,23 @@ func ConnectWithError(dsn string) (*gorm.DB, error) {
 		}
 	}
 
+	connConfig, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("invalid database DSN: %w", err)
+	}
+
+	// Force IPv4 tcp4 network dialing for Vercel / serverless compatibility
+	connConfig.DialFunc = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		var d net.Dialer
+		d.Timeout = 5 * time.Second
+		return d.DialContext(ctx, "tcp4", addr)
+	}
+
+	dbKey := stdlib.RegisterConnConfig(connConfig)
+
 	db, err := gorm.Open(postgres.New(postgres.Config{
-		DSN:                  dsn,
+		DriverName:           "pgx",
+		DSN:                  dbKey,
 		PreferSimpleProtocol: true,
 	}), &gorm.Config{
 		NowFunc: func() time.Time {
@@ -52,4 +71,3 @@ func Connect(dsn string) *gorm.DB {
 	}
 	return db
 }
-
