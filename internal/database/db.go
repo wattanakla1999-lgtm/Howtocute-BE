@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func Connect(dsn string) *gorm.DB {
+func ConnectWithError(dsn string) (*gorm.DB, error) {
 	thailandLocation := time.FixedZone("Asia/Bangkok", 7*60*60)
 
 	db, err := gorm.Open(postgres.New(postgres.Config{
@@ -21,9 +21,18 @@ func Connect(dsn string) *gorm.DB {
 		},
 	})
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	fmt.Println("Database connected!")
+	return db, nil
+}
+
+func Connect(dsn string) *gorm.DB {
+	db, err := ConnectWithError(dsn)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return db
 }
+
