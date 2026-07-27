@@ -301,7 +301,7 @@ func (s *BookingService) storeSlipURL(bookingID uint, slipURL string) (string, e
 	}
 	uploadedURL, err := s.slipUploader.UploadSlip(context.Background(), bookingID, slipURL)
 	if err != nil {
-		return "", apperror.Internal("could not upload slip image", err)
+		return "", apperror.Internal(fmt.Sprintf("could not upload slip image: %v", err), err)
 	}
 	return uploadedURL, nil
 }
