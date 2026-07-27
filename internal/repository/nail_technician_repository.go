@@ -50,7 +50,27 @@ func (r *NailTechnicianRepository) Create(technician *model.NailTechnician) erro
 }
 
 func (r *NailTechnicianRepository) Update(technician *model.NailTechnician, input model.NailTechnician) error {
-	return r.db.Model(technician).Updates(input).Error
+	if err := r.db.Model(technician).Updates(map[string]any{
+		"technician_name":  input.TechnicianName,
+		"phone":            input.Phone,
+		"experience_years": input.ExperienceYears,
+		"specialty":        input.Specialty,
+		"profile_img":      input.ProfileImg,
+		"avatar_url":       input.AvatarURL,
+		"active":           input.Active,
+		"bio":              input.Bio,
+	}).Error; err != nil {
+		return err
+	}
+	technician.TechnicianName = input.TechnicianName
+	technician.Phone = input.Phone
+	technician.ExperienceYears = input.ExperienceYears
+	technician.Specialty = input.Specialty
+	technician.ProfileImg = input.ProfileImg
+	technician.AvatarURL = input.AvatarURL
+	technician.Active = input.Active
+	technician.Bio = input.Bio
+	return nil
 }
 
 func (r *NailTechnicianRepository) Delete(technician *model.NailTechnician) error {

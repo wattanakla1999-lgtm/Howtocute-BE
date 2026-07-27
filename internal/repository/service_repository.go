@@ -46,7 +46,27 @@ func (r *ServiceRepository) Create(service *model.Service) error {
 }
 
 func (r *ServiceRepository) Update(service *model.Service, input model.Service) error {
-	return r.db.Model(service).Updates(input).Error
+	if err := r.db.Model(service).Updates(map[string]any{
+		"service_name":  input.ServiceName,
+		"service_price": input.ServicePrice,
+		"duration":      input.Duration,
+		"image_url":     input.ImageURL,
+		"img":           input.Img,
+		"service_img":   input.ServiceImg,
+		"popular":       input.Popular,
+		"description":   input.Description,
+	}).Error; err != nil {
+		return err
+	}
+	service.ServiceName = input.ServiceName
+	service.ServicePrice = input.ServicePrice
+	service.Duration = input.Duration
+	service.ImageURL = input.ImageURL
+	service.Img = input.Img
+	service.ServiceImg = input.ServiceImg
+	service.Popular = input.Popular
+	service.Description = input.Description
+	return nil
 }
 
 func (r *ServiceRepository) Delete(service *model.Service) error {

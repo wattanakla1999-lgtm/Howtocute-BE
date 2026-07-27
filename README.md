@@ -40,10 +40,12 @@ Set these environment variables to upload base64 slip images to Supabase Storage
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 SUPABASE_STORAGE_BUCKET=FileUpload
+SUPABASE_PROFILE_IMAGE_BUCKET=profileImg
 ```
 
 `POST /api/bookings/:id/upload-slip` accepts `{ "slipUrl": "data:image/png;base64,..." }`, uploads the image to the configured bucket, and stores the resulting public URL on the booking.
 The `FileUpload` bucket should be public, or configured with a read policy that lets the admin frontend display stored slip images.
+Service images and technician profile images sent as base64 data URLs are uploaded to `SUPABASE_PROFILE_IMAGE_BUCKET`, then saved as public URLs in `img`/`imageUrl` and `profileImg`/`avatarUrl`.
 
 ## Dashboard
 

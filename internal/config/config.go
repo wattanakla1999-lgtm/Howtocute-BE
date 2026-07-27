@@ -25,6 +25,7 @@ type Config struct {
 	SupabaseURL                     string
 	SupabaseServiceRoleKey          string
 	SupabaseStorageBucket           string
+	SupabaseProfileImageBucket      string
 }
 
 func Load() Config {
@@ -48,6 +49,7 @@ func Load() Config {
 		SupabaseURL:                     normalizeOrigin(getEnv("SUPABASE_URL", "")),
 		SupabaseServiceRoleKey:          getEnv("SUPABASE_SERVICE_ROLE_KEY", getEnv("SUPABASE_SERVICE_KEY", "")),
 		SupabaseStorageBucket:           getEnv("SUPABASE_STORAGE_BUCKET", "FileUpload"),
+		SupabaseProfileImageBucket:      getEnv("SUPABASE_PROFILE_IMAGE_BUCKET", "profileImg"),
 	}
 }
 

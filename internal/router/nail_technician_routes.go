@@ -9,9 +9,9 @@ import (
 	"gorm.io/gorm"
 )
 
-func RegisterNailTechnicianRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin gin.HandlerFunc) {
+func RegisterNailTechnicianRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin gin.HandlerFunc, imageUploader service.ImageUploader) {
 	nailTechnicianRepository := repository.NewNailTechnicianRepository(db)
-	nailTechnicianService := service.NewNailTechnicianService(nailTechnicianRepository)
+	nailTechnicianService := service.NewNailTechnicianService(nailTechnicianRepository, imageUploader)
 	nailTechnicianHandler := handler.NewNailTechnicianHandler(nailTechnicianService)
 
 	nailTechnicians := api.Group("/nail_technician")

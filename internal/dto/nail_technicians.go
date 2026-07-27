@@ -12,6 +12,7 @@ type CreateNailTechnicianRequest struct {
 	ExperienceYears int       `json:"experienceYears"`
 	Specialty       string    `json:"specialty,omitempty"`
 	ProfileImg      string    `json:"profileImg,omitempty"`
+	AvatarURL       string    `json:"avatarUrl,omitempty"`
 	Active          bool      `json:"active"`
 	Bio             string    `json:"bio,omitempty"`
 	CreatedAt       time.Time `json:"createdAt"`
@@ -24,6 +25,7 @@ type UpdateNailTechnicianRequest struct {
 	ExperienceYears int    `json:"experienceYears"`
 	Specialty       string `json:"specialty,omitempty"`
 	ProfileImg      string `json:"profileImg,omitempty"`
+	AvatarURL       string `json:"avatarUrl,omitempty"`
 	Active          bool   `json:"active"`
 	Bio             string `json:"bio,omitempty"`
 }
@@ -37,6 +39,7 @@ type NailTechnicianResponse struct {
 	ExperienceYears int       `json:"experienceYears"`
 	Specialty       string    `json:"specialty,omitempty"`
 	ProfileImg      string    `json:"profileImg,omitempty"`
+	AvatarURL       string    `json:"avatarUrl,omitempty"`
 	Active          bool      `json:"active"`
 	Bio             string    `json:"bio,omitempty"`
 	CreatedAt       time.Time `json:"createdAt"`
@@ -52,7 +55,8 @@ func ToNailTechnicianResponse(technician model.NailTechnician) NailTechnicianRes
 		Phone:           technician.Phone,
 		ExperienceYears: technician.ExperienceYears,
 		Specialty:       technician.Specialty,
-		ProfileImg:      technician.ProfileImg,
+		ProfileImg:      firstNonEmpty(technician.ProfileImg, technician.AvatarURL),
+		AvatarURL:       firstNonEmpty(technician.AvatarURL, technician.ProfileImg),
 		Active:          technician.Active,
 		Bio:             technician.Bio,
 		CreatedAt:       technician.CreatedAt.In(thailandLocation),
@@ -76,7 +80,8 @@ func (r CreateNailTechnicianRequest) ToModel() model.NailTechnician {
 		Phone:           r.Phone,
 		ExperienceYears: r.ExperienceYears,
 		Specialty:       r.Specialty,
-		ProfileImg:      r.ProfileImg,
+		ProfileImg:      firstNonEmpty(r.ProfileImg, r.AvatarURL),
+		AvatarURL:       firstNonEmpty(r.AvatarURL, r.ProfileImg),
 		Active:          r.Active,
 		Bio:             r.Bio,
 	}
@@ -88,7 +93,8 @@ func (r UpdateNailTechnicianRequest) ToModel() model.NailTechnician {
 		Phone:           r.Phone,
 		ExperienceYears: r.ExperienceYears,
 		Specialty:       r.Specialty,
-		ProfileImg:      r.ProfileImg,
+		ProfileImg:      firstNonEmpty(r.ProfileImg, r.AvatarURL),
+		AvatarURL:       firstNonEmpty(r.AvatarURL, r.ProfileImg),
 		Active:          r.Active,
 		Bio:             r.Bio,
 	}

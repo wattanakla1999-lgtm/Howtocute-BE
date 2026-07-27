@@ -9,9 +9,9 @@ import (
 	"gorm.io/gorm"
 )
 
-func RegisterServiceRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin gin.HandlerFunc) {
+func RegisterServiceRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin gin.HandlerFunc, imageUploader service.ImageUploader) {
 	serviceRepository := repository.NewServiceRepository(db)
-	serviceService := service.NewServicesService(serviceRepository)
+	serviceService := service.NewServicesService(serviceRepository, imageUploader)
 	serviceHandler := handler.NewServicesHandler(serviceService)
 
 	services := api.Group("/services")

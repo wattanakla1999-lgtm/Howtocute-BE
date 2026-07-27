@@ -48,6 +48,14 @@ func main() {
 	); storageClient != nil {
 		slipUploader = storageClient
 	}
+	var imageUploader service.ImageUploader
+	if storageClient := service.NewSupabaseStorageClient(
+		cfg.SupabaseURL,
+		cfg.SupabaseServiceRoleKey,
+		cfg.SupabaseProfileImageBucket,
+	); storageClient != nil {
+		imageUploader = storageClient
+	}
 	authService := service.NewAuthService(repository.NewAuthRepository(db), jwtManager)
 	if err := authService.EnsureAdmin(cfg.AdminUsername, cfg.AdminName, cfg.AdminPassword); err != nil {
 		log.Fatal("seed configured admin: ", err)
@@ -61,6 +69,9 @@ func main() {
 		log.Fatal("migrate nail technicians: ", err)
 	}
 	fmt.Println("Database Nail Technician migrated!")
+	if err := database.EnsureCatalogImageSchema(db); err != nil {
+		log.Fatal("prepare catalog image schema: ", err)
+	}
 
 	// Legacy schemas may have a composite primary key containing a custom string ID.
 	// These unique indexes let booking foreign keys safely reference gorm.Model.ID.
@@ -87,7 +98,7 @@ func main() {
 	}
 	fmt.Println("Database Shop Setting migrated!")
 
-	r := router.New(db, cfg.AllowOrigin, jwtManager, customerJWTManager, cfg.LineLoginChannelID, lineNotificationService, slipUploader)
+	r := router.New(db, cfg.AllowOrigin, jwtManager, customerJWTManager, cfg.LineLoginChannelID, lineNotificationService, slipUploader, imageUploader)
 	r.Run(":" + cfg.Port)
 }
 
