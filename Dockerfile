@@ -6,7 +6,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -tags netgo -ldflags "-s -w" -o /app/server ./cmd/api
+RUN go mod tidy && CGO_ENABLED=0 GOOS=linux go build -tags netgo -ldflags "-s -w" -o /app/server ./cmd/api
 
 FROM alpine:3.22
 
