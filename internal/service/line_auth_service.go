@@ -151,7 +151,7 @@ func (s *LineAuthService) Login(ctx context.Context, idToken string) (LineAuthRe
 			maskChannelID(s.channelID),
 			maskChannelID(claims.Audience),
 		)
-		return LineAuthResult{}, apperror.Unauthorized("invalid LINE token", apperror.ErrValidation)
+		return LineAuthResult{}, apperror.Unauthorized(fmt.Sprintf("invalid LINE token: Channel ID mismatch (backend expects %s, but token is for %s)", s.channelID, claims.Audience), apperror.ErrValidation)
 	}
 	lineUserID := strings.TrimSpace(claims.Subject)
 	if lineUserID == "" {
