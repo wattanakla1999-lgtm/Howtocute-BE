@@ -102,6 +102,11 @@ jobs:
       # 11. Deploy ไป Render หลังจาก CI ผ่าน เฉพาะ push เข้า main
       - name: Deploy to Render
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: curl --fail --request POST "$RENDER_DEPLOY_HOOK_URL"
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
+            curl --fail --request POST "$RENDER_DEPLOY_HOOK_URL"
+          else
+            echo "RENDER_DEPLOY_HOOK_URL is not set, skipping Render deploy."
+          fi
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
