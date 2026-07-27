@@ -38,12 +38,15 @@ func ConnectWithError(dsn string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("invalid database DSN: %w", err)
 	}
 
-	// Force IPv4 tcp4 network dialing for Vercel / serverless compatibility
+	// Force IPv4 tcp4 network dialing for serverless / container compatibility
 	connConfig.DialFunc = func(ctx context.Context, network, addr string) (net.Conn, error) {
 		var d net.Dialer
 		d.Timeout = 5 * time.Second
 		return d.DialContext(ctx, "tcp4", addr)
 	}
+
+	// Force Simple Protocol to prevent prepared statement cache conflicts with Supabase PgBouncer (port 6543)
+	connConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	dbKey := stdlib.RegisterConnConfig(connConfig)
 
@@ -52,6 +55,7 @@ func ConnectWithError(dsn string) (*gorm.DB, error) {
 		DSN:                  dbKey,
 		PreferSimpleProtocol: true,
 	}), &gorm.Config{
+		PrepareStmt: false,
 		NowFunc: func() time.Time {
 			return time.Now().In(thailandLocation)
 		},

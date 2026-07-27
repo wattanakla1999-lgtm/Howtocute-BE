@@ -26,12 +26,15 @@ func main() {
 	db := database.Connect(cfg.DSN)
 
 	if err := db.AutoMigrate(&model.User{}); err != nil {
-		log.Fatal("migrate users: ", err)
+		log.Println("migrate users warning: ", err)
+	} else {
+		fmt.Println("Database User migrated!")
 	}
-	fmt.Println("Database User migrated!")
+
 	if err := db.AutoMigrate(&model.Admin{}); err != nil {
-		log.Fatal("migrate admins: ", err)
+		log.Println("migrate admins warning: ", err)
 	}
+
 	jwtManager := service.NewJWTManager(cfg.JWTSecret, cfg.JWTTTL)
 	customerJWTManager := service.NewCustomerJWTManager(cfg.CustomerJWTSecret, cfg.CustomerJWTTTL)
 	lineNotificationService := service.NewLineNotificationService(
@@ -40,6 +43,7 @@ func main() {
 		cfg.LineShopOwnerUserID,
 		cfg.LineBookingDetailsURL,
 	)
+
 	var slipUploader service.SlipUploader
 	if storageClient := service.NewSupabaseStorageClient(
 		cfg.SupabaseURL,
@@ -48,6 +52,7 @@ func main() {
 	); storageClient != nil {
 		slipUploader = storageClient
 	}
+
 	var imageUploader service.ImageUploader
 	if storageClient := service.NewSupabaseStorageClient(
 		cfg.SupabaseURL,
@@ -56,47 +61,52 @@ func main() {
 	); storageClient != nil {
 		imageUploader = storageClient
 	}
+
 	authService := service.NewAuthService(repository.NewAuthRepository(db), jwtManager)
 	if err := authService.EnsureAdmin(cfg.AdminUsername, cfg.AdminName, cfg.AdminPassword); err != nil {
-		log.Fatal("seed configured admin: ", err)
-	}
-	fmt.Println("Database Admin migrated!")
-	if err := db.AutoMigrate(&model.Service{}); err != nil {
-		log.Fatal("migrate services: ", err)
-	}
-	fmt.Println("Database Service migrated!")
-	if err := db.AutoMigrate(&model.NailTechnician{}); err != nil {
-		log.Fatal("migrate nail technicians: ", err)
-	}
-	fmt.Println("Database Nail Technician migrated!")
-	if err := database.EnsureCatalogImageSchema(db); err != nil {
-		log.Fatal("prepare catalog image schema: ", err)
+		log.Println("seed admin warning: ", err)
+	} else {
+		fmt.Println("Database Admin migrated!")
 	}
 
-	// Legacy schemas may have a composite primary key containing a custom string ID.
-	// These unique indexes let booking foreign keys safely reference gorm.Model.ID.
-	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_service_dbs_gorm_id ON service_dbs (id)").Error; err != nil {
-		log.Fatal("prepare service booking foreign key: ", err)
+	if err := db.AutoMigrate(&model.Service{}); err != nil {
+		log.Println("migrate services warning: ", err)
+	} else {
+		fmt.Println("Database Service migrated!")
 	}
-	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_nail_technician_dbs_gorm_id ON nail_technician_dbs (id)").Error; err != nil {
-		log.Fatal("prepare technician booking foreign key: ", err)
+
+	if err := db.AutoMigrate(&model.NailTechnician{}); err != nil {
+		log.Println("migrate nail technicians warning: ", err)
+	} else {
+		fmt.Println("Database Nail Technician migrated!")
 	}
+
+	if err := database.EnsureCatalogImageSchema(db); err != nil {
+		log.Println("prepare catalog image schema warning: ", err)
+	}
+
+	_ = db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_service_dbs_gorm_id ON service_dbs (id)").Error
+	_ = db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_nail_technician_dbs_gorm_id ON nail_technician_dbs (id)").Error
+
 	if db.Migrator().HasTable(&model.Booking{}) {
-		if err := db.Exec("ALTER TABLE bookings ALTER COLUMN user_id DROP NOT NULL").Error; err != nil {
-			log.Fatal("make booking user optional: ", err)
-		}
+		_ = db.Exec("ALTER TABLE bookings ALTER COLUMN user_id DROP NOT NULL").Error
 	}
+
 	if err := database.EnsureDepositPaymentSchema(db); err != nil {
-		log.Fatal("prepare deposit payment schema: ", err)
+		log.Println("prepare deposit payment schema warning: ", err)
 	}
+
 	if err := db.AutoMigrate(&model.Booking{}); err != nil {
-		log.Fatal("migrate bookings: ", err)
+		log.Println("migrate bookings warning: ", err)
+	} else {
+		fmt.Println("Database Booking migrated!")
 	}
-	fmt.Println("Database Booking migrated!")
+
 	if err := db.AutoMigrate(&model.ShopSetting{}); err != nil {
-		log.Fatal("migrate shop settings: ", err)
+		log.Println("migrate shop settings warning: ", err)
+	} else {
+		fmt.Println("Database Shop Setting migrated!")
 	}
-	fmt.Println("Database Shop Setting migrated!")
 
 	r := router.New(db, cfg.AllowOrigin, jwtManager, customerJWTManager, cfg.LineLoginChannelID, lineNotificationService, slipUploader, imageUploader)
 	r.Run(":" + cfg.Port)
