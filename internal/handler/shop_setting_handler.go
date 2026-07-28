@@ -42,6 +42,7 @@ func (h *ShopSettingHandler) UpdateSettings(c *gin.Context) {
 		BankName:        request.BankName,
 		DepositAmount:   request.DepositAmount,
 		QrCodeUrl:       request.QrCodeUrl,
+		AccountNumber:   request.AccountNumber,
 	})
 	if err != nil {
 		respondError(c, err)

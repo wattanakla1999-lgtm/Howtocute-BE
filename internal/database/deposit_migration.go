@@ -10,7 +10,8 @@ func EnsureDepositPaymentSchema(db *gorm.DB) error {
 			ADD COLUMN IF NOT EXISTS account_name VARCHAR(100) DEFAULT 'ร้าน Nailly Nail Salon',
 			ADD COLUMN IF NOT EXISTS bank_name VARCHAR(50) DEFAULT 'ธนาคารกสิกรไทย',
 			ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC(10,2) DEFAULT 200.00,
-			ADD COLUMN IF NOT EXISTS qr_code_url TEXT DEFAULT ''
+			ADD COLUMN IF NOT EXISTS qr_code_url TEXT DEFAULT '',
+			ADD COLUMN IF NOT EXISTS account_number VARCHAR(50) DEFAULT ''
 		`).Error; err != nil {
 			return err
 		}

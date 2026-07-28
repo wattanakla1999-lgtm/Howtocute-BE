@@ -23,6 +23,7 @@ type UpdateShopSettingInput struct {
 	BankName        string
 	DepositAmount   *float64
 	QrCodeUrl       string
+	AccountNumber   string
 }
 
 type ShopSettingService struct {
@@ -50,6 +51,7 @@ func (s *ShopSettingService) UpdateSettings(input UpdateShopSettingInput) (model
 	input.PromptPayNumber = strings.TrimSpace(input.PromptPayNumber)
 	input.AccountName = strings.TrimSpace(input.AccountName)
 	input.BankName = strings.TrimSpace(input.BankName)
+	input.AccountNumber = strings.TrimSpace(input.AccountNumber)
 
 	if input.ShopStatus != "open" && input.ShopStatus != "closed" {
 		return model.ShopSetting{}, apperror.BadRequest("shopStatus must be open or closed", apperror.ErrValidation)
@@ -103,6 +105,9 @@ func (s *ShopSettingService) UpdateSettings(input UpdateShopSettingInput) (model
 	}
 	if input.BankName != "" {
 		setting.BankName = input.BankName
+	}
+	if input.AccountNumber != "" {
+		setting.AccountNumber = input.AccountNumber
 	}
 	if input.DepositAmount != nil {
 		setting.DepositAmount = *input.DepositAmount
