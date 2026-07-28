@@ -25,6 +25,7 @@ type DashboardAppointment struct {
 	Service string
 	Time    string
 	Status  string
+	ImgURL  string
 }
 
 type DashboardPopularService struct {
@@ -116,10 +117,15 @@ func newCustomerLabel(count int64) string {
 func toDashboardAppointments(bookings []model.Booking) []DashboardAppointment {
 	items := make([]DashboardAppointment, 0, len(bookings))
 	for _, booking := range bookings {
+		var imgURL string
+		if booking.User != nil {
+			imgURL = booking.User.PictureURL
+		}
 		items = append(items, DashboardAppointment{
 			ID: strconv.FormatUint(uint64(booking.ID), 10), Name: booking.CustomerName,
 			Service: booking.ServiceName, Time: booking.StartAt.In(time.Local).Format("15:04"),
 			Status: dashboardBookingStatus(booking.Status),
+			ImgURL: imgURL,
 		})
 	}
 	return items

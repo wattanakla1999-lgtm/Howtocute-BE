@@ -8,6 +8,7 @@ type DashboardAppointmentResponse struct {
 	Service string `json:"service"`
 	Time    string `json:"time"`
 	Status  string `json:"status"`
+	ImgURL  string `json:"imgUrl,omitempty"`
 }
 
 type DashboardPopularServiceResponse struct {

@@ -72,7 +72,7 @@ func (r *DashboardRepository) SumCompletedRevenue(startAt, endAt time.Time) (int
 
 func (r *DashboardRepository) FindAppointments(startAt, endAt time.Time, limit int) ([]model.Booking, error) {
 	var bookings []model.Booking
-	err := r.db.
+	err := r.db.Preload("User").
 		Where("status NOT IN ?", dashboardExcludedStatuses).
 		Where("start_at >= ? AND start_at < ?", startAt, endAt).
 		Order("start_at ASC").
