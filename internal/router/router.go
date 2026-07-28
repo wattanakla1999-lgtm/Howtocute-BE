@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func New(db *gorm.DB, allowOrigin string, jwtManager *service.JWTManager, customerJWTManager *service.CustomerJWTManager, lineLoginChannelID string, bookingNotifier service.BookingNotifier, slipUploader service.SlipUploader, imageUploader service.ImageUploader) *gin.Engine {
+func New(db *gorm.DB, allowOrigin string, jwtManager *service.JWTManager, customerJWTManager *service.CustomerJWTManager, lineLoginChannelID string, bookingNotifier service.BookingNotifier, slipUploader service.SlipUploader, imageUploader service.ImageUploader, qrCodeUploader service.ImageUploader) *gin.Engine {
 	r := gin.Default()
 	r.Use(corsMiddleware(allowOrigin))
 
@@ -53,7 +53,7 @@ func New(db *gorm.DB, allowOrigin string, jwtManager *service.JWTManager, custom
 	RegisterDashboardRoutes(api, db, requireAdmin)
 
 	// Shop Settings
-	RegisterShopSettingRoutes(api, db, requireAdmin)
+	RegisterShopSettingRoutes(api, db, requireAdmin, qrCodeUploader)
 
 	return r
 }

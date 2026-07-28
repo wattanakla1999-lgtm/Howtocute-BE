@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"nailly-back-end/internal/apperror"
 	"nailly-back-end/internal/model"
 	"strings"
@@ -21,14 +22,20 @@ type UpdateShopSettingInput struct {
 	AccountName     string
 	BankName        string
 	DepositAmount   *float64
+	QrCodeUrl       string
 }
 
 type ShopSettingService struct {
-	repo ShopSettingStore
+	repo           ShopSettingStore
+	qrCodeUploader ImageUploader
 }
 
-func NewShopSettingService(repo ShopSettingStore) *ShopSettingService {
-	return &ShopSettingService{repo: repo}
+func NewShopSettingService(repo ShopSettingStore, uploaders ...ImageUploader) *ShopSettingService {
+	var uploader ImageUploader
+	if len(uploaders) > 0 {
+		uploader = uploaders[0]
+	}
+	return &ShopSettingService{repo: repo, qrCodeUploader: uploader}
 }
 
 func (s *ShopSettingService) GetSettings() (model.ShopSetting, error) {
@@ -69,6 +76,21 @@ func (s *ShopSettingService) UpdateSettings(input UpdateShopSettingInput) (model
 	if err != nil {
 		return model.ShopSetting{}, err
 	}
+
+	if strings.HasPrefix(input.QrCodeUrl, "data:image/") {
+		if s.qrCodeUploader == nil {
+			return model.ShopSetting{}, apperror.Internal("qr code uploader is not configured", nil)
+		}
+		uploadedURL, err := s.qrCodeUploader.UploadImage(context.Background(), "qrcodes", 1, input.QrCodeUrl)
+		if err != nil {
+			return model.ShopSetting{}, apperror.Internal("could not upload qr code image", err)
+		}
+		setting.QrCodeUrl = uploadedURL
+	} else if input.QrCodeUrl != "" || input.QrCodeUrl == "" {
+		// If it's a regular URL or cleared, set it directly
+		setting.QrCodeUrl = input.QrCodeUrl
+	}
+
 	setting.ShopStatus = input.ShopStatus
 	setting.OpenTime = input.OpenTime
 	setting.CloseTime = input.CloseTime

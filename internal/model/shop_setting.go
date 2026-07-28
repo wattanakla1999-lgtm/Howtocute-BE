@@ -13,6 +13,7 @@ type ShopSetting struct {
 	AccountName     string  `gorm:"type:varchar(100);not null;default:ร้าน Nailly Nail Salon" json:"accountName"`
 	BankName        string  `gorm:"type:varchar(50);not null;default:ธนาคารกสิกรไทย" json:"bankName"`
 	DepositAmount   float64 `gorm:"type:numeric(10,2);not null;default:200;check:deposit_amount >= 0" json:"depositAmount"`
+	QrCodeUrl       string  `gorm:"type:text" json:"qrCodeUrl"`
 }
 
 func (ShopSetting) TableName() string {
@@ -30,5 +31,6 @@ func DefaultShopSetting() ShopSetting {
 		AccountName:     "ร้าน Nailly Nail Salon",
 		BankName:        "ธนาคารกสิกรไทย",
 		DepositAmount:   200,
+		QrCodeUrl:       "",
 	}
 }

@@ -62,6 +62,15 @@ func main() {
 		imageUploader = storageClient
 	}
 
+	var qrCodeUploader service.ImageUploader
+	if storageClient := service.NewSupabaseStorageClient(
+		cfg.SupabaseURL,
+		cfg.SupabaseServiceRoleKey,
+		"QRCodeOwner",
+	); storageClient != nil {
+		qrCodeUploader = storageClient
+	}
+
 	authService := service.NewAuthService(repository.NewAuthRepository(db), jwtManager)
 	if err := authService.EnsureAdmin(cfg.AdminUsername, cfg.AdminName, cfg.AdminPassword); err != nil {
 		log.Println("seed admin warning: ", err)
@@ -114,7 +123,7 @@ func main() {
 		fmt.Println("Database Shop Setting migrated!")
 	}
 
-	r := router.New(db, cfg.AllowOrigin, jwtManager, customerJWTManager, cfg.LineLoginChannelID, lineNotificationService, slipUploader, imageUploader)
+	r := router.New(db, cfg.AllowOrigin, jwtManager, customerJWTManager, cfg.LineLoginChannelID, lineNotificationService, slipUploader, imageUploader, qrCodeUploader)
 	r.Run(":" + cfg.Port)
 }
 

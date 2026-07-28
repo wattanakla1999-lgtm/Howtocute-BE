@@ -9,9 +9,9 @@ import (
 	"gorm.io/gorm"
 )
 
-func RegisterShopSettingRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin gin.HandlerFunc) {
+func RegisterShopSettingRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin gin.HandlerFunc, qrCodeUploader service.ImageUploader) {
 	settingRepository := repository.NewShopSettingRepository(db)
-	settingService := service.NewShopSettingService(settingRepository)
+	settingService := service.NewShopSettingService(settingRepository, qrCodeUploader)
 	settingHandler := handler.NewShopSettingHandler(settingService)
 
 	settings := api.Group("/settings")

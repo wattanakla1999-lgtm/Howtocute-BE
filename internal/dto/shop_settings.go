@@ -11,6 +11,7 @@ type UpdateShopSettingRequest struct {
 	AccountName     string   `json:"accountName"`
 	BankName        string   `json:"bankName"`
 	DepositAmount   *float64 `json:"depositAmount"`
+	QrCodeUrl       string   `json:"qrCodeUrl"`
 }
 
 type ShopSettingResponse struct {
@@ -22,6 +23,7 @@ type ShopSettingResponse struct {
 	AccountName     string  `json:"accountName"`
 	BankName        string  `json:"bankName"`
 	DepositAmount   float64 `json:"depositAmount"`
+	QrCodeUrl       string  `json:"qrCodeUrl"`
 }
 
 func ToShopSettingResponse(setting model.ShopSetting) ShopSettingResponse {
@@ -34,5 +36,6 @@ func ToShopSettingResponse(setting model.ShopSetting) ShopSettingResponse {
 		AccountName:     setting.AccountName,
 		BankName:        setting.BankName,
 		DepositAmount:   setting.DepositAmount,
+		QrCodeUrl:       setting.QrCodeUrl,
 	}
 }
