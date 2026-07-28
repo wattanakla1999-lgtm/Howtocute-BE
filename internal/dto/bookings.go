@@ -77,8 +77,9 @@ type AssignTechnicianRequest struct {
 }
 
 type BookingUserResponse struct {
-	ID   uint   `json:"id"`
-	Name string `json:"name"`
+	ID         uint   `json:"id"`
+	Name       string `json:"name"`
+	PictureURL string `json:"pictureUrl,omitempty"`
 }
 
 type BookingServiceResponse struct {
@@ -158,7 +159,11 @@ func ToBookingResponse(booking model.Booking) BookingResponse {
 		UpdatedAt: booking.UpdatedAt.In(thailandLocation),
 	}
 	if booking.User != nil {
-		response.User = &BookingUserResponse{ID: booking.User.ID, Name: booking.User.Name}
+		response.User = &BookingUserResponse{
+			ID:         booking.User.ID,
+			Name:       booking.User.Name,
+			PictureURL: booking.User.PictureURL,
+		}
 	}
 
 	if booking.Technician != nil {
