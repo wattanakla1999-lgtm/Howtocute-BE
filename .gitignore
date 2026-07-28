@@ -1,5 +1,6 @@
 .env
-api
+/api
+!/api/
 *.log
 .DS_Store
 
